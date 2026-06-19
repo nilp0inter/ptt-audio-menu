@@ -156,10 +156,20 @@ The flake now builds the package and evaluates module examples, but it still doe
 
 ## Leg 14: Real Package NixOS CLI Smoke Checks
 
-Status: pending
+Status: complete
 
 The module can now be boot-tested with a dummy executable, but the VM path still avoids the real Rust binary because the normal runtime connects Bluetooth hardware. The next integration step should exercise the packaged binary in a hardware-free mode:
 
 - Add a NixOS VM or derivation check that uses the real package with a non-Bluetooth CLI path such as `--help`.
 - Verify the NixOS module can install and invoke the real package without needing RSM hardware.
 - Keep the existing dummy service VM check for long-running systemd service semantics.
+
+## Leg 15: Configuration Fixture Integration Checks
+
+Status: pending
+
+The flake now checks the real packaged binary through the NixOS module with `--help`, but the package check still does not exercise config-file loading outside unit tests. The next integration step should remain hardware-free and focus on the TOML boundary:
+
+- Add a representative example config fixture with dummy Piper model/config paths suitable for validation tests.
+- Add a derivation or NixOS check that runs the real binary far enough to validate CLI/config behavior without attempting Bluetooth, if a narrow CLI path is introduced.
+- If that requires a new CLI mode, keep it explicitly diagnostic and avoid changing the runtime menu behavior.

@@ -50,6 +50,21 @@
               }
             ];
           };
+          nixosRealHelpEval = lib.nixosSystem {
+            inherit system;
+            modules = [
+              ./nix/nixos-module.nix
+              {
+                services.ptt-audio-menu = {
+                  enable = true;
+                  package = self.packages.${system}.default;
+                  extraArgs = [ "--help" ];
+                };
+
+                system.stateVersion = "25.11";
+              }
+            ];
+          };
           nixosServiceTest = pkgs.testers.nixosTest {
             name = "ptt-audio-menu-service";
             nodes.machine = {
@@ -131,6 +146,18 @@
             ''
               test -n "$execStart"
               grep -Fx '${dummyPackage}' <<< "$packages"
+              touch "$out"
+            '';
+          nixos-real-package-help = pkgs.runCommand "ptt-audio-menu-nixos-real-package-help-check"
+            {
+              execStart = nixosRealHelpEval.config.systemd.services.ptt-audio-menu.serviceConfig.ExecStart;
+              packages = lib.concatMapStringsSep "\n" toString nixosRealHelpEval.config.environment.systemPackages;
+            }
+            ''
+              grep -Fx '${self.packages.${system}.default}' <<< "$packages"
+              $execStart > help
+              grep -F "Usage:" help
+              grep -F -- "--config" help
               touch "$out"
             '';
           nixos-service-vm = nixosServiceTest;

@@ -52,9 +52,11 @@ host policy dependent.
 ## Checks
 
 `nix flake check` builds the package, evaluates NixOS/Home Manager module
-examples, and runs a NixOS VM smoke check for the system service with a dummy
-executable. The VM check verifies systemd wiring, configured arguments, and
-service environment without requiring Bluetooth hardware.
+examples, invokes the real package through the NixOS module-generated
+`ExecStart` with `--help`, and runs a NixOS VM smoke check for the system
+service with a dummy executable. The real-package check exits before Bluetooth
+setup. The VM check verifies systemd wiring, configured arguments, and service
+environment without requiring Bluetooth hardware.
 
 Hardware connection and audio playback remain host/runtime checks because they
 depend on the paired RSM, BlueZ, and the host audio stack.

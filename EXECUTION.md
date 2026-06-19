@@ -171,3 +171,15 @@
 - Re-verified realized module checks with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module .#checks.x86_64-linux.nixos-service-vm`.
 - Verified with `git diff --check`.
 - Could not rerun `nix build .#packages.x86_64-linux.default` or Rust `nix develop --command cargo ...` checks after the store filled; no Rust source changed in this leg.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 14: real package NixOS CLI smoke checks.
+- Added a `checks.${system}.nixos-real-package-help` derivation that evaluates the NixOS module with the real packaged binary, verifies the package is installed into `environment.systemPackages`, runs the generated systemd `ExecStart` with `--help`, and checks that Clap help includes usage and `--config`.
+- Kept the existing dummy service VM check as the long-running systemd smoke test, because the real binary's normal runtime path still connects to Bluetooth hardware.
+- Found `/nix/store` was full at the start of the session before verification.
+- Marked Leg 14 complete and added Leg 15 for future hardware-free config fixture integration checks.
+- Ran `nix-store --gc` to recover space; interrupted it after several minutes once enough store space had been freed.
+- Verified with `git diff --check`.
+- Verified with `nix build .#checks.x86_64-linux.nixos-real-package-help`.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module .#checks.x86_64-linux.nixos-real-package-help`.
+- Did not rerun the NixOS service VM check because the package/help check left only about 445 MiB free in `/nix/store`.

@@ -5,11 +5,13 @@ use tokio::io::AsyncReadExt;
 
 mod config;
 mod input;
+mod menu;
 mod parser;
 mod transport;
 
 use config::{load_config, resolve_config_path};
 use input::InputNormalizer;
+use menu::MenuState;
 use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
 
@@ -38,6 +40,7 @@ async fn main() -> Result<()> {
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut parser = Parser::default();
     let mut input = InputNormalizer::new(active_ptt_hold_threshold);
+    let mut menu = MenuState::new(&config)?;
     let mut buf = [0u8; 1024];
 
     loop {
@@ -58,6 +61,13 @@ async fn main() -> Result<()> {
             print_raw_event(event);
             for input_event in input.push(event, Instant::now()) {
                 println!("input event={input_event:?} mode={:?}", input.mode());
+                for menu_outcome in menu.push(&config, input_event) {
+                    println!(
+                        "menu outcome={menu_outcome:?} phase={:?} active_tool={}",
+                        menu.phase(),
+                        menu.active_tool(&config).id
+                    );
+                }
             }
         }
     }

@@ -38,7 +38,7 @@ The implementation now has transport, parsing, and hardware input normalization,
 
 ## Leg 4: Menu State Foundation
 
-Status: pending
+Status: complete
 
 The program now validates configuration before connecting Bluetooth and has normalized hardware input events, but it still only prints diagnostics. The next step is to add the menu state layer without executing actions or producing audio yet:
 
@@ -47,3 +47,15 @@ The program now validates configuration before connecting Bluetooth and has norm
 - Resolve global tabs plus the active tool's local tabs into the control tab list.
 - Return action IDs as outcomes instead of executing them.
 - Add unit tests for active-to-control, tab cycling, item scrolling, PTT selection exiting control, control SOS alternate action staying in control, and no idle timeout transition.
+
+## Leg 5: Action Dispatch Foundation
+
+Status: pending
+
+Menu state now emits action IDs, but the runtime still only prints diagnostics. The next step is to introduce the action dispatch boundary while keeping audio/TTS and full command lifecycle small enough for a later leg:
+
+- Add an `actions` module that indexes validated config actions by ID and resolves `MenuOutcome::Action` values.
+- Implement internal action effects that are purely stateful or diagnostic for now: `noop`, `switch_tool`, and `exit_control`.
+- Keep external command actions as queued/recognized but not fully executed until the command runner leg.
+- Update `MenuState` as needed so internal `switch_tool` and `exit_control` can mutate menu state through explicit methods instead of bypassing menu invariants.
+- Add focused tests for action lookup, unknown action defense, switching tools, and exiting control.

@@ -40,3 +40,14 @@
 - Marked Leg 3 complete and added Leg 4 for menu state foundation.
 - Created commit `42905e5` (`Add config loading and validation`).
 - `git push` succeeded, updating `main` on GitHub.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 4: menu state foundation.
+- Added `src/menu.rs` with menu phase tracking, active tool tracking, control tab/item focus, global-plus-local tab resolution, and action-ID menu outcomes.
+- Mapped normalized input events to menu outcomes for entering control, cycling tabs, scrolling items, selecting primary actions, active hooks, and control-mode SOS alternate actions.
+- Added menu unit tests for active-to-control, tab cycling, item scrolling, PTT selection exiting control, control SOS alternate action staying in control, active hook actions, and no idle timeout transition.
+- Wired `MenuState` into the diagnostic runtime loop so normalized input events now print resulting menu outcomes without executing actions or producing audio.
+- Initial menu tests exposed that `MenuState` accepted an active PTT action while its own phase was still control; fixed this by guarding active events by menu phase.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (29 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 4 complete and added Leg 5 for action dispatch foundation.

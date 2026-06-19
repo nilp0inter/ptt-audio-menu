@@ -20,6 +20,10 @@ pub enum MenuOutcome {
         tab_id: String,
         item_id: Option<String>,
     },
+    ItemChanged {
+        tab_id: String,
+        item_id: Option<String>,
+    },
     Action {
         action_id: String,
     },
@@ -62,10 +66,12 @@ impl MenuState {
         &config.tools[self.active_tool_index]
     }
 
-    pub fn focused_prompt_text<'a>(&self, config: &'a Config) -> Option<&'a str> {
-        self.selected_item(config)
-            .map(|item| item.label.as_str())
-            .or_else(|| self.selected_tab(config).map(|tab| tab.label.as_str()))
+    pub fn focused_tab_prompt_text<'a>(&self, config: &'a Config) -> Option<&'a str> {
+        self.selected_tab(config).map(|tab| tab.label.as_str())
+    }
+
+    pub fn focused_item_prompt_text<'a>(&self, config: &'a Config) -> Option<&'a str> {
+        self.selected_item(config).map(|item| item.label.as_str())
     }
 
     pub fn switch_tool(&mut self, config: &Config, tool_id: &str) -> Result<()> {
@@ -76,8 +82,7 @@ impl MenuState {
 
         self.active_tool_index = active_tool_index;
         self.phase = MenuPhase::Active;
-        self.selected_tab_index = 0;
-        self.selected_item_index = 0;
+        self.clamp_focus(config);
         Ok(())
     }
 
@@ -97,8 +102,7 @@ impl MenuState {
                 .collect(),
             InputEvent::EnterControl => {
                 self.phase = MenuPhase::Control;
-                self.selected_tab_index = 0;
-                self.selected_item_index = 0;
+                self.clamp_focus(config);
                 vec![self.focus_outcome(config, MenuOutcomeKind::EnteredControl)]
             }
             InputEvent::NextTab if self.phase == MenuPhase::Control => {
@@ -111,11 +115,11 @@ impl MenuState {
             }
             InputEvent::ScrollUp if self.phase == MenuPhase::Control => {
                 self.scroll_item(config, ScrollDirection::Previous);
-                vec![self.focus_outcome(config, MenuOutcomeKind::FocusChanged)]
+                vec![self.focus_outcome(config, MenuOutcomeKind::ItemChanged)]
             }
             InputEvent::ScrollDown if self.phase == MenuPhase::Control => {
                 self.scroll_item(config, ScrollDirection::Next);
-                vec![self.focus_outcome(config, MenuOutcomeKind::FocusChanged)]
+                vec![self.focus_outcome(config, MenuOutcomeKind::ItemChanged)]
             }
             InputEvent::Select if self.phase == MenuPhase::Control => {
                 self.phase = MenuPhase::Active;
@@ -187,6 +191,27 @@ impl MenuState {
             .and_then(|item| item.alternate_action.as_ref())
     }
 
+    fn clamp_focus(&mut self, config: &Config) {
+        let tab_count = self.control_tab_count(config);
+        if tab_count == 0 {
+            self.selected_tab_index = 0;
+            self.selected_item_index = 0;
+            return;
+        }
+
+        if self.selected_tab_index >= tab_count {
+            self.selected_tab_index = 0;
+        }
+
+        let item_count = self
+            .selected_tab(config)
+            .map(|tab| tab.items.len())
+            .unwrap_or(0);
+        if item_count == 0 || self.selected_item_index >= item_count {
+            self.selected_item_index = 0;
+        }
+    }
+
     fn scroll_item(&mut self, config: &Config, direction: ScrollDirection) {
         let Some(tab) = self.selected_tab(config) else {
             self.selected_item_index = 0;
@@ -224,6 +249,7 @@ impl MenuState {
         match kind {
             MenuOutcomeKind::EnteredControl => MenuOutcome::EnteredControl { tab_id, item_id },
             MenuOutcomeKind::FocusChanged => MenuOutcome::FocusChanged { tab_id, item_id },
+            MenuOutcomeKind::ItemChanged => MenuOutcome::ItemChanged { tab_id, item_id },
         }
     }
 }
@@ -238,6 +264,7 @@ enum ScrollDirection {
 enum MenuOutcomeKind {
     EnteredControl,
     FocusChanged,
+    ItemChanged,
 }
 
 fn action_outcome(action_id: &String) -> MenuOutcome {
@@ -384,14 +411,14 @@ mod tests {
 
         assert_eq!(
             menu.push(&config, InputEvent::ScrollDown),
-            vec![MenuOutcome::FocusChanged {
+            vec![MenuOutcome::ItemChanged {
                 tab_id: "local".to_string(),
                 item_id: Some("squelch".to_string()),
             }]
         );
         assert_eq!(
             menu.push(&config, InputEvent::ScrollUp),
-            vec![MenuOutcome::FocusChanged {
+            vec![MenuOutcome::ItemChanged {
                 tab_id: "local".to_string(),
                 item_id: Some("mute".to_string()),
             }]
@@ -412,6 +439,52 @@ mod tests {
             }]
         );
         assert_eq!(menu.phase(), MenuPhase::Active);
+    }
+
+    #[test]
+    fn entering_control_returns_to_last_selected_tab() {
+        let config = config();
+        let mut menu = MenuState::new(&config).unwrap();
+
+        menu.push(&config, InputEvent::EnterControl);
+        menu.push(&config, InputEvent::NextTab);
+        menu.push(&config, InputEvent::Select);
+
+        assert_eq!(
+            menu.push(&config, InputEvent::EnterControl),
+            vec![MenuOutcome::EnteredControl {
+                tab_id: "local".to_string(),
+                item_id: Some("mute".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn switch_tool_preserves_last_tab_when_still_valid() {
+        let mut config = config();
+        config.tools.push(ToolConfig {
+            id: "other".to_string(),
+            label: "Other".to_string(),
+            active_ptt_hold_ms: None,
+            active_hooks: ActiveHooks::default(),
+            tabs: vec![tab(
+                "other-local",
+                vec![item("other-item", "mute", Some("mute-alt"))],
+            )],
+        });
+        let mut menu = MenuState::new(&config).unwrap();
+
+        menu.push(&config, InputEvent::EnterControl);
+        menu.push(&config, InputEvent::NextTab);
+        menu.switch_tool(&config, "other").unwrap();
+
+        assert_eq!(
+            menu.push(&config, InputEvent::EnterControl),
+            vec![MenuOutcome::EnteredControl {
+                tab_id: "other-local".to_string(),
+                item_id: Some("other-item".to_string()),
+            }]
+        );
     }
 
     #[test]

@@ -20,7 +20,7 @@ use actions::{ActionDispatcher, ActionEffect, CommandFeedback};
 use audio::AudioPlayer;
 use commands::{CommandExecution, CommandOutcome, CommandRunner};
 use config::{load_config, resolve_config_path, Config, InternalCommand};
-use input::InputNormalizer;
+use input::{InputEvent, InputNormalizer};
 use menu::{MenuOutcome, MenuState};
 use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
@@ -54,13 +54,11 @@ async fn main() -> Result<()> {
     }
 
     let mut runtime = RuntimeState::load(config_path.clone())?;
-    let active_ptt_hold_threshold =
-        Duration::from_millis(runtime.config.globals.active_ptt_hold_ms);
-
     info!(
         config_path = %config_path.display(),
         default_tool = %runtime.config.default_tool,
         active_ptt_hold_ms = runtime.config.globals.active_ptt_hold_ms,
+        active_ptt_trigger = ?runtime.config.globals.active_ptt_trigger,
         "loaded config"
     );
     info!(tts_cache_dir = %runtime.tts_cache_dir.display(), "resolved TTS cache");
@@ -69,7 +67,7 @@ async fn main() -> Result<()> {
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut audio = AudioPlayer::new(runtime.config.audio.device.as_deref(), Some(DEVICE_ADDR))?;
     let mut parser = Parser::default();
-    let mut input = InputNormalizer::new(active_ptt_hold_threshold);
+    let mut input = input_normalizer_for(&runtime.config);
     let mut menu = MenuState::new(&runtime.config)?;
     let command_runner = CommandRunner::new();
     let (command_tx, mut command_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -82,6 +80,7 @@ async fn main() -> Result<()> {
     )?;
 
     loop {
+        let next_input_deadline = input.next_deadline();
         tokio::select! {
             read_result = stream.read(&mut buf) => {
                 let n = read_result.context("read RFCOMM stream")?;
@@ -103,6 +102,18 @@ async fn main() -> Result<()> {
             }
             Some(completion) = command_rx.recv() => {
                 handle_command_completion(&mut audio, &runtime.prompt_audio, completion)?;
+            }
+            _ = sleep_until_std(next_input_deadline), if next_input_deadline.is_some() => {
+                process_input_events(
+                    input.pop_due(Instant::now()),
+                    &mut input,
+                    &mut menu,
+                    &mut runtime,
+                    &command_runner,
+                    &command_tx,
+                    &mut audio,
+                )
+                .await?;
             }
         }
     }
@@ -128,43 +139,66 @@ async fn process_chunk(
 
     for event in parser.push(chunk) {
         log_raw_event(event);
-        for input_event in input.push(event, Instant::now()) {
-            debug!(event = ?input_event, mode = ?input.mode(), "normalized input event");
-            for menu_outcome in menu.push(&runtime.config, input_event) {
+        process_input_events(
+            input.push(event, Instant::now()),
+            input,
+            menu,
+            runtime,
+            command_runner,
+            command_tx,
+            audio,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+async fn process_input_events(
+    input_events: Vec<InputEvent>,
+    input: &mut InputNormalizer,
+    menu: &mut MenuState,
+    runtime: &mut RuntimeState,
+    command_runner: &CommandRunner,
+    command_tx: &tokio::sync::mpsc::UnboundedSender<CommandCompletion>,
+    audio: &mut AudioPlayer,
+) -> Result<()> {
+    for input_event in input_events {
+        debug!(event = ?input_event, mode = ?input.mode(), "normalized input event");
+        for menu_outcome in menu.push(&runtime.config, input_event) {
+            debug!(
+                outcome = ?menu_outcome,
+                phase = ?menu.phase(),
+                active_tool = %menu.active_tool(&runtime.config).id,
+                "menu outcome"
+            );
+            handle_menu_audio(
+                audio,
+                &runtime.prompt_audio,
+                &runtime.config,
+                menu,
+                &menu_outcome,
+            )?;
+            if let MenuOutcome::Action { action_id } = menu_outcome {
+                let effect = runtime
+                    .actions
+                    .dispatch(&runtime.config, menu, &action_id)?;
                 debug!(
-                    outcome = ?menu_outcome,
+                    effect = ?effect,
                     phase = ?menu.phase(),
                     active_tool = %menu.active_tool(&runtime.config).id,
-                    "menu outcome"
+                    "action effect"
                 );
-                handle_menu_audio(
+                handle_action_effect(
+                    command_runner,
+                    command_tx,
                     audio,
-                    &runtime.prompt_audio,
-                    &runtime.config,
+                    runtime,
                     menu,
-                    &menu_outcome,
-                )?;
-                if let MenuOutcome::Action { action_id } = menu_outcome {
-                    let effect = runtime
-                        .actions
-                        .dispatch(&runtime.config, menu, &action_id)?;
-                    debug!(
-                        effect = ?effect,
-                        phase = ?menu.phase(),
-                        active_tool = %menu.active_tool(&runtime.config).id,
-                        "action effect"
-                    );
-                    handle_action_effect(
-                        command_runner,
-                        command_tx,
-                        audio,
-                        runtime,
-                        menu,
-                        input,
-                        effect,
-                    )
-                    .await?;
-                }
+                    input,
+                    effect,
+                )
+                .await?;
             }
         }
     }
@@ -232,9 +266,7 @@ async fn handle_action_effect(
             Ok(next_runtime) => {
                 *runtime = next_runtime;
                 *menu = MenuState::new(&runtime.config)?;
-                *input = InputNormalizer::new(Duration::from_millis(
-                    runtime.config.globals.active_ptt_hold_ms,
-                ));
+                *input = input_normalizer_for(&runtime.config);
                 play_prompt(
                     audio,
                     &runtime.prompt_audio,
@@ -325,7 +357,12 @@ fn handle_menu_audio(
 ) -> Result<()> {
     match outcome {
         MenuOutcome::EnteredControl { .. } | MenuOutcome::FocusChanged { .. } => {
-            if let Some(text) = menu.focused_prompt_text(config) {
+            if let Some(text) = menu.focused_tab_prompt_text(config) {
+                play_prompt(audio, prompt_audio, text)?;
+            }
+        }
+        MenuOutcome::ItemChanged { .. } => {
+            if let Some(text) = menu.focused_item_prompt_text(config) {
                 play_prompt(audio, prompt_audio, text)?;
             }
         }
@@ -339,6 +376,19 @@ fn play_prompt(audio: &mut AudioPlayer, prompt_audio: &PromptAudioIndex, text: &
         audio.play_interrupting(path)?;
     }
     Ok(())
+}
+
+async fn sleep_until_std(deadline: Option<Instant>) {
+    if let Some(deadline) = deadline {
+        tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)).await;
+    }
+}
+
+fn input_normalizer_for(config: &Config) -> InputNormalizer {
+    InputNormalizer::with_trigger(
+        Duration::from_millis(config.globals.active_ptt_hold_ms),
+        config.globals.active_ptt_trigger,
+    )
 }
 
 fn speak_action_text<'a>(config: &'a config::Config, action_id: &str) -> Option<&'a str> {

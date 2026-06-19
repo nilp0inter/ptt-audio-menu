@@ -251,3 +251,19 @@ Implementation notes:
 - Attempted cpal device enumeration first, but `cpal::default_host().output_devices()` returned an empty iterator on this PipeWire system because Bluetooth sinks are not exposed through ALSA.
 - Attempted `pw-dump` subprocess discovery, but this violates the constraint against external tool calls at runtime.
 - The final approach uses zero external tools and zero new crate dependencies: derive the node name from the MAC address and set the env var before Kira initializes its cpal stream.
+
+## Leg 22: Handy Dictation Example and Control Ergonomics
+
+Status: complete
+
+This leg adds the first real ergonomic example config and the small runtime support it required:
+
+- Added `examples/config.handy.toml` for the user's Handy dictation workflow.
+- Added `globals.active_ptt_trigger` with `release_after_hold` as the default, plus `press` and `hold_toggle` modes.
+- Implemented hold-toggle PTT behavior: fire the active PTT action once when the hold threshold elapses, and fire it again on release only if the threshold action actually fired.
+- Added a runtime input deadline branch so hold-toggle can fire at the configured threshold without waiting for another serial byte.
+- Split menu audio focus into tab changes and item changes: Group speaks tab labels, while Volume Up/Down speaks item labels.
+- Made the menu remember the last selected valid control tab/item across exit and compatible tool switches, so re-entering control returns to the user's last context.
+- Modeled Handy plain and polished dictation as separate tools with a shared Dictation tab containing both mode choices, plus a System tab with Back/reload/audio controls.
+
+Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, `nix develop --command cargo check`, and `nix develop --command cargo run -- --config examples/config.handy.toml --check-config` all passed.

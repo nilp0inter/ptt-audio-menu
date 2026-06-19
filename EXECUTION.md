@@ -295,3 +295,18 @@
 - Added Leg 21 to PLAN.md for audio device routing.
 - Updated EXECUTION.md with this session log.
 - Latest session: read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md`; re-audited pending Leg 20; confirmed `/nix/store` remains a 3.9 GiB overlay with 2.6 GiB available; skipped the full package plus VM closure because this store remains below the known failing headroom; verified `nix flake check --no-build`, `git diff --check`, and `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`; left Leg 20 pending and locally blocked until a larger Nix store is available.
+- New Handy example/config ergonomics session: read `DESIGN.md`, `PLAN.md`, and then the full project session docs per `PROMPT.md`/`AGENTS.md`.
+- Added `examples/config.handy.toml` as a separate real-use example config, leaving `examples/config.validation.toml` unchanged for CI.
+- Inspected `nixpkgs#handy --help`; relevant commands are `--toggle-transcription`, `--toggle-post-process`, and `--cancel`.
+- Initially modeled Handy plain/polished dictation as duplicate tools to avoid adding internal boolean flag state.
+- Found the dummy fixture voice files validate with `--check-config` but cannot run through Piper; copied the real voice paths from `/home/nil/.config/ptt-audio-menu/config.toml`: `/tmp/en_GB-alan-medium.onnx` and `/tmp/voice.conf`.
+- Ran the app with the Handy config and confirmed it loaded the real voice, prerendered prompts, connected to `00:02:5B:55:FF:01`, routed audio to `bluez_output.00_02_5B_55_FF_01.1`, and completed `handy-toggle-plain` actions.
+- Added `globals.active_ptt_trigger` with default `release_after_hold`, plus `press` and `hold_toggle` modes. `hold_toggle` fires the active PTT action at the hold threshold and again on release only if the threshold fire occurred.
+- Added an input deadline branch to the main `tokio::select!` loop so hold-toggle can fire at the threshold without waiting for additional RFCOMM bytes.
+- Removed command feedback from Handy PTT and cancel commands so those commands do not speak start/success/failure prompts.
+- Split menu focus outcomes so Group tab changes speak tab labels and Volume Up/Down item changes speak item labels.
+- Made `MenuState` preserve the last selected valid tab/item across control exit and compatible `switch_tool` actions.
+- Updated the Handy example to provide `System` and `Dictation` tabs, with both `Plain dictation` and `Polished dictation` available from either Handy mode, and renamed the system exit item to `Back`.
+- Updated `DESIGN.md` with active PTT trigger semantics, tab/item navigation speech behavior, remembered control focus, and hold-toggle test coverage.
+- Added Leg 22 to `PLAN.md` for the Handy dictation example and control ergonomics work.
+- Verified with `nix develop --command cargo fmt --check`, `nix develop --command cargo test` (52 tests passed), `nix develop --command cargo check`, and `nix develop --command cargo run -- --config examples/config.handy.toml --check-config`.

@@ -55,14 +55,26 @@ pub struct AudioConfig {
 pub struct GlobalDefaults {
     #[serde(default = "default_active_ptt_hold_ms")]
     pub active_ptt_hold_ms: u64,
+    #[serde(default)]
+    pub active_ptt_trigger: ActivePttTrigger,
 }
 
 impl Default for GlobalDefaults {
     fn default() -> Self {
         Self {
             active_ptt_hold_ms: default_active_ptt_hold_ms(),
+            active_ptt_trigger: ActivePttTrigger::default(),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivePttTrigger {
+    Press,
+    HoldToggle,
+    #[default]
+    ReleaseAfterHold,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -492,6 +504,22 @@ argv = ["date"]
     #[test]
     fn valid_config_passes_validation() {
         Fixture::new().config().validate().unwrap();
+    }
+
+    #[test]
+    fn parses_active_ptt_trigger() {
+        let fixture = Fixture::new();
+        let toml = fixture.toml().replace(
+            "[voice]",
+            "[globals]\nactive_ptt_trigger = \"hold_toggle\"\n\n[voice]",
+        );
+        let config: Config = toml::from_str(&toml).expect("parse trigger config");
+
+        assert_eq!(
+            config.globals.active_ptt_trigger,
+            ActivePttTrigger::HoldToggle
+        );
+        config.validate().unwrap();
     }
 
     #[test]

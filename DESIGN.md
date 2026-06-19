@@ -80,7 +80,7 @@ The hardware controls its own long-press threshold. When the SOS button is held 
 
 ### II. Context-Aware PTT Debouncing
 The PTT button requires different evaluation parameters based on the current system mode:
-- **In Active Mode (State A):** Apply a configurable hold-down threshold (e.g., 350ms) to filter out brief accidental taps of the button when the device is worn on a belt or shoulder.
+- **In Active Mode (State A):** Apply configurable PTT trigger semantics. The default is release-after-hold, where the action fires on release only if the button was held past the threshold. Tools can instead use press-triggered mode, or hold-toggle mode where the action fires once when the hold threshold elapses and again on release only if the threshold action actually fired. Hold-toggle is intended for external tools whose command toggles recording/transcription state.
 - **In Selection Mode (State B):** Disable debouncing entirely. PTT inputs must register immediately to ensure navigation select commands feel fast and responsive.
 
 ---
@@ -95,7 +95,7 @@ Use `--config <path>`, otherwise load `$XDG_CONFIG_HOME/ptt-audio-menu/config.to
 - Voice config uses explicit Piper model/config paths.
 - TTS cache defaults to `$XDG_CACHE_HOME/ptt-audio-menu/tts`, overrideable in config.
 - `[audio] device` optionally specifies a bluetooth device MAC address for audio output routing. When set, audio is directed to the matching PipeWire sink via the `PIPEWIRE_NODE` environment variable. If omitted, the system default sink is used.
-- Global defaults include active PTT hold threshold; tools may override it.
+- Global defaults include active PTT hold threshold and active PTT trigger mode; tools may override the threshold.
 - Tools define active hooks and local control tabs. Global tabs are available from every tool.
 - Items define label text plus primary/alternate actions.
 
@@ -113,7 +113,7 @@ Use `--config <path>`, otherwise load `$XDG_CONFIG_HOME/ptt-audio-menu/config.to
 - At startup, validate config and prerender all configured TTS labels before connecting hardware.
 - Cache WAV PCM prompts using a full input hash: text, voice/model paths, Piper settings, output format, and app version.
 - On successful startup, speak the active tool label.
-- Navigation speech uses interrupt-latest semantics.
+- Navigation speech uses interrupt-latest semantics. Control tab entry/cycling speaks the tab label, while volume scrolling within a tab speaks the focused item label.
 - Playback is internal via `kira`.
 - Audio output routing derives a PipeWire sink node name from the configured Bluetooth MAC (`bluez_output.<underscored_mac>.1`) and sets the `PIPEWIRE_NODE` environment variable before initializing the audio backend. When no audio device is configured, the system default sink applies.
 
@@ -174,10 +174,12 @@ Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `di
   - PTT selection exits Control Phase
   - Control SOS alternate action stays in Control Phase
   - No idle timeout transition
+  - Re-entering Control returns to the last selected valid tab/item instead of resetting to the first tab
 - **Input semantics tests:**
   - Active PTT threshold suppresses short accidental taps
   - Control PTT bypasses threshold
   - SOS short suppressed after long signal
+  - Hold-toggle PTT fires at the hold threshold and again on release only when the threshold fire occurred
 - **TTS cache tests:**
   - Same full input hash reuses WAV
   - Text/model/settings changes produce different cache entries

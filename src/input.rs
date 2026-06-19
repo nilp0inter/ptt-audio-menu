@@ -1,4 +1,7 @@
-use crate::parser::{Button, Event, RawAction};
+use crate::{
+    config::ActivePttTrigger,
+    parser::{Button, Event, RawAction},
+};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -23,22 +26,59 @@ pub enum InputEvent {
 pub struct InputNormalizer {
     mode: HardwareMode,
     active_ptt_hold_threshold: Duration,
+    active_ptt_trigger: ActivePttTrigger,
     active_ptt_pressed_at: Option<Instant>,
+    active_ptt_fired: bool,
     sos_long_seen: bool,
 }
 
 impl InputNormalizer {
     pub fn new(active_ptt_hold_threshold: Duration) -> Self {
+        Self::with_trigger(active_ptt_hold_threshold, ActivePttTrigger::default())
+    }
+
+    pub fn with_trigger(
+        active_ptt_hold_threshold: Duration,
+        active_ptt_trigger: ActivePttTrigger,
+    ) -> Self {
         Self {
             mode: HardwareMode::Active,
             active_ptt_hold_threshold,
+            active_ptt_trigger,
             active_ptt_pressed_at: None,
+            active_ptt_fired: false,
             sos_long_seen: false,
         }
     }
 
     pub fn mode(&self) -> HardwareMode {
         self.mode
+    }
+
+    pub fn next_deadline(&self) -> Option<Instant> {
+        if self.mode == HardwareMode::Active
+            && self.active_ptt_trigger == ActivePttTrigger::HoldToggle
+            && !self.active_ptt_fired
+        {
+            return self
+                .active_ptt_pressed_at
+                .map(|pressed_at| pressed_at + self.active_ptt_hold_threshold);
+        }
+
+        None
+    }
+
+    pub fn pop_due(&mut self, now: Instant) -> Vec<InputEvent> {
+        let Some(deadline) = self.next_deadline() else {
+            return Vec::new();
+        };
+
+        if now < deadline {
+            return Vec::new();
+        }
+
+        self.active_ptt_fired = true;
+        vec![InputEvent::ActivePtt]
     }
 
     pub fn push(&mut self, event: Event, now: Instant) -> Vec<InputEvent> {
@@ -76,11 +116,19 @@ impl InputNormalizer {
         match self.mode {
             HardwareMode::Active => {
                 self.active_ptt_pressed_at = Some(now);
-                Vec::new()
+                self.active_ptt_fired = false;
+                match self.active_ptt_trigger {
+                    ActivePttTrigger::Press => {
+                        self.active_ptt_fired = true;
+                        vec![InputEvent::ActivePtt]
+                    }
+                    ActivePttTrigger::HoldToggle | ActivePttTrigger::ReleaseAfterHold => Vec::new(),
+                }
             }
             HardwareMode::Control => {
                 self.mode = HardwareMode::Active;
                 self.active_ptt_pressed_at = None;
+                self.active_ptt_fired = false;
                 vec![InputEvent::Select]
             }
         }
@@ -95,10 +143,21 @@ impl InputNormalizer {
             return Vec::new();
         };
 
-        if now.duration_since(pressed_at) >= self.active_ptt_hold_threshold {
-            vec![InputEvent::ActivePtt]
-        } else {
-            Vec::new()
+        match self.active_ptt_trigger {
+            ActivePttTrigger::HoldToggle if self.active_ptt_fired => {
+                self.active_ptt_fired = false;
+                vec![InputEvent::ActivePtt]
+            }
+            ActivePttTrigger::ReleaseAfterHold
+                if now.duration_since(pressed_at) >= self.active_ptt_hold_threshold =>
+            {
+                self.active_ptt_fired = false;
+                vec![InputEvent::ActivePtt]
+            }
+            _ => {
+                self.active_ptt_fired = false;
+                Vec::new()
+            }
         }
     }
 
@@ -107,6 +166,7 @@ impl InputNormalizer {
             HardwareMode::Active => {
                 self.mode = HardwareMode::Control;
                 self.active_ptt_pressed_at = None;
+                self.active_ptt_fired = false;
                 vec![InputEvent::EnterControl]
             }
             HardwareMode::Control => vec![InputEvent::NextTab],
@@ -216,6 +276,58 @@ mod tests {
             normalizer.push(event(Button::Ptt, RawAction::Released), start + THRESHOLD),
             vec![InputEvent::ActivePtt]
         );
+    }
+
+    #[test]
+    fn active_ptt_can_emit_on_press() {
+        let mut normalizer = InputNormalizer::with_trigger(THRESHOLD, ActivePttTrigger::Press);
+        let start = at(Duration::ZERO);
+
+        assert_eq!(
+            normalizer.push(event(Button::Ptt, RawAction::Pressed), start),
+            vec![InputEvent::ActivePtt]
+        );
+        assert!(normalizer
+            .push(event(Button::Ptt, RawAction::Released), start + THRESHOLD)
+            .is_empty());
+    }
+
+    #[test]
+    fn active_ptt_hold_toggle_emits_at_threshold_and_release() {
+        let mut normalizer = InputNormalizer::with_trigger(THRESHOLD, ActivePttTrigger::HoldToggle);
+        let start = at(Duration::ZERO);
+
+        assert!(normalizer
+            .push(event(Button::Ptt, RawAction::Pressed), start)
+            .is_empty());
+        assert_eq!(normalizer.next_deadline(), Some(start + THRESHOLD));
+        assert!(normalizer
+            .pop_due(start + Duration::from_millis(349))
+            .is_empty());
+        assert_eq!(
+            normalizer.pop_due(start + THRESHOLD),
+            vec![InputEvent::ActivePtt]
+        );
+        assert_eq!(
+            normalizer.push(event(Button::Ptt, RawAction::Released), start + THRESHOLD),
+            vec![InputEvent::ActivePtt]
+        );
+        assert_eq!(normalizer.next_deadline(), None);
+    }
+
+    #[test]
+    fn active_ptt_hold_toggle_suppresses_short_taps() {
+        let mut normalizer = InputNormalizer::with_trigger(THRESHOLD, ActivePttTrigger::HoldToggle);
+        let start = at(Duration::ZERO);
+
+        normalizer.push(event(Button::Ptt, RawAction::Pressed), start);
+        assert!(normalizer
+            .push(
+                event(Button::Ptt, RawAction::Released),
+                start + Duration::from_millis(349)
+            )
+            .is_empty());
+        assert_eq!(normalizer.next_deadline(), None);
     }
 
     #[test]

@@ -56,12 +56,13 @@ nix develop --command cargo check
 
 - `src/main.rs`: application entry point, stdout tracing initialization, reloadable config/cache/prompt-catalog runtime state, TTS prerendering, audio playback wiring, hardcoded target device address, RFCOMM read loop, command-completion feedback handling, parser/menu/action event logging.
 - `examples/config.validation.toml`: representative validation-only config fixture used by the real-package config flake check.
+- `examples/config.handy.toml`: real-use Handy dictation example. It uses the real local Piper voice paths from `/tmp`, models plain and polished dictation as separate tools, uses `globals.active_ptt_trigger = "hold_toggle"`, and intentionally omits command feedback for PTT/cancel commands so those actions do not speak extra prompts.
 - `src/audio.rs`: Kira-backed interrupt-latest WAV prompt playback and stop-current handling. On startup, derives a PipeWire sink node name from the hardcoded Bluetooth MAC (`bluez_output.<underscored_mac>.1`), sets the `PIPEWIRE_NODE` environment variable before Kira initializes its cpal stream, and falls back to the system default sink when no device is configured. cpal device enumeration cannot see Bluetooth A2DP sinks because they are PipeWire-native devices invisible to cpal's ALSA backend.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance, and connection lifecycle tracing.
 - `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.
-- `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, PTT threshold handling, and input semantics unit tests.
-- `src/config.rs`: CLI config path resolution helpers, serde-backed TOML schema (including `AudioConfig` with optional `device` field for future audio sink configurability), validation, and config unit tests.
-- `src/menu.rs`: menu phase/focus state, active/global control tab resolution, input-to-action outcome mapping, and menu state unit tests.
+- `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, active PTT trigger handling (`release_after_hold`, `press`, `hold_toggle`), and input semantics unit tests.
+- `src/config.rs`: CLI config path resolution helpers, serde-backed TOML schema (including `AudioConfig` with optional `device` field for future audio sink configurability and `globals.active_ptt_trigger`), validation, and config unit tests.
+- `src/menu.rs`: menu phase/focus state, active/global control tab resolution, remembered valid control focus across exit/tool switches, tab-vs-item focus outcomes, input-to-action outcome mapping, and menu state unit tests.
 - `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.
 - `src/commands.rs`: async argv-list command runner, serial execution guard, optional timeout handling, Unix process-group cancellation, and command runner unit tests.
 - `src/tts.rs`: TTS cache directory resolution, stable prompt hash keys, placeholder Piper settings, prompt text collection, Piper rendering to PCM WAV, WAV cache read/write helpers, and TTS cache unit tests.

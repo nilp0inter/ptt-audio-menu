@@ -1,0 +1,121 @@
+default_tool = "handy"
+
+[voice]
+model_path = "/tmp/en_GB-alan-medium.onnx"
+config_path = "/tmp/voice.conf"
+
+[globals]
+active_ptt_hold_ms = 500
+active_ptt_trigger = "hold_toggle"
+
+[cache]
+tts_dir = "target/ptt-audio-menu/tts-cache"
+
+[audio]
+device = "B02PTT-FF01"
+
+[[tools]]
+id = "handy"
+label = "Handy"
+
+[tools.active_hooks]
+ptt = "handy-toggle-plain"
+sos_short = "handy-cancel"
+
+[[tools.tabs]]
+id = "mode"
+label = "Dictation"
+
+[[tools.tabs.items]]
+id = "plain"
+label = "Plain dictation"
+primary_action = "switch-handy"
+
+[[tools.tabs.items]]
+id = "polished"
+label = "Polished dictation"
+primary_action = "switch-handy-polished"
+
+[[tools]]
+id = "handy-polished"
+label = "Handy polished"
+
+[tools.active_hooks]
+ptt = "handy-toggle-polished"
+sos_short = "handy-cancel"
+
+[[tools.tabs]]
+id = "mode"
+label = "Dictation"
+
+[[tools.tabs.items]]
+id = "plain"
+label = "Plain dictation"
+primary_action = "switch-handy"
+
+[[tools.tabs.items]]
+id = "polished"
+label = "Polished dictation"
+primary_action = "switch-handy-polished"
+
+[[global_tabs]]
+id = "system"
+label = "System"
+
+[[global_tabs.items]]
+id = "reload"
+label = "Reload config"
+primary_action = "reload-config"
+
+[[global_tabs.items]]
+id = "exit"
+label = "Back"
+primary_action = "exit-control"
+
+[[global_tabs.items]]
+id = "stop-audio"
+label = "Stop audio"
+primary_action = "stop-audio"
+
+[[actions]]
+id = "handy-toggle-plain"
+type = "command"
+argv = ["nix", "run", "nixpkgs#handy", "--", "--toggle-transcription"]
+
+[[actions]]
+id = "handy-toggle-polished"
+type = "command"
+argv = ["nix", "run", "nixpkgs#handy", "--", "--toggle-post-process"]
+
+[[actions]]
+id = "handy-cancel"
+type = "command"
+argv = ["nix", "run", "nixpkgs#handy", "--", "--cancel"]
+
+[[actions]]
+id = "switch-handy"
+type = "internal"
+command = "switch_tool"
+tool = "handy"
+
+[[actions]]
+id = "switch-handy-polished"
+type = "internal"
+command = "switch_tool"
+tool = "handy-polished"
+
+[[actions]]
+id = "reload-config"
+type = "internal"
+command = "reload_config"
+text = "Reload failed"
+
+[[actions]]
+id = "exit-control"
+type = "internal"
+command = "exit_control"
+
+[[actions]]
+id = "stop-audio"
+type = "internal"
+command = "stop_audio"

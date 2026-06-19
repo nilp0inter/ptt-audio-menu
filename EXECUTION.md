@@ -91,3 +91,13 @@
 - Verified with `nix develop --command cargo test` (42 unit tests passed).
 - Verified with `nix develop --command cargo check`.
 - Marked Leg 7 complete and added Leg 8 for audio feedback foundation.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Found pending Leg 8 was too broad for a short focused session because it combined prompt collection, Piper rendering, Kira playback, and runtime wiring.
+- Split Leg 8 into a completed prompt catalog foundation and a new pending Leg 9 for TTS rendering/audio playback.
+- Added prompt collection in `src/tts.rs` for tool labels, local/global tab labels, item labels, internal `speak` text, and command feedback labels.
+- Deduplicated prompt text in stable order and ignored whitespace-only prompt strings.
+- Wired startup to build the prompt catalog before Bluetooth connection and print the prompt count with existing diagnostics.
+- Added a focused prompt collection unit test covering labels, speak text, command feedback, deduplication, stable ordering, and whitespace filtering.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (43 unit tests passed). Nix printed a transient eval-cache SQLite busy warning, but Cargo completed successfully.
+- Verified with `nix develop --command cargo check`.

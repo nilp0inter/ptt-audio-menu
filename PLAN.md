@@ -85,14 +85,25 @@ Commands now execute through a serial backend, but feedback is still diagnostic 
 - Update startup validation/runtime wiring only enough to construct the cache.
 - Add focused tests that identical full inputs reuse the same cache path and text/model/settings changes produce different cache paths.
 
-## Leg 8: Audio Feedback Foundation
+## Leg 8: Prompt Catalog Foundation
+
+Status: complete
+
+The runtime creates a TTS cache, but audio rendering/playback is a large enough step to split. The first boundary is now complete:
+
+- Collect prompt text from tool labels, tab labels, item labels, internal speak actions, and command feedback labels.
+- Deduplicate prompt text in stable order and ignore empty/whitespace-only prompts.
+- Wire startup to build the prompt catalog before connecting Bluetooth.
+- Preserve existing TTS cache key tests and add focused prompt collection coverage.
+
+## Leg 9: TTS Rendering and Audio Playback Foundation
 
 Status: pending
 
-The runtime now creates a TTS cache and can store/reuse WAV bytes, but it still does not render prompts or play audio. The next step is to add the first real feedback boundary:
+The runtime now knows which prompt texts need speech, but it still does not render prompts or play audio. The next step is to add the first real feedback backend:
 
-- Add Piper rendering behind the existing TTS cache so configured labels and feedback text can be prerendered at startup.
-- Collect prompt text from tool labels, tab labels, item labels, internal speak actions, and command feedback labels.
+- Add Piper rendering behind the existing TTS cache so configured prompt texts can be prerendered at startup.
 - Add a small audio playback module using `kira` with interrupt-latest semantics for navigation speech.
 - Wire startup to prerender prompts before connecting Bluetooth and speak the active tool label after successful startup.
-- Keep command feedback and reload behavior minimal if needed, but preserve tests around cache key reuse and add focused tests for prompt collection.
+- Add navigation speech for control entry/focus changes using cached prompt audio.
+- Keep command feedback and reload behavior minimal if needed, but preserve tests around cache key reuse and prompt collection.

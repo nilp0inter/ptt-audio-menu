@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 
-use crate::config::{Config, VoiceConfig};
+use crate::config::{ActionConfig, Config, VoiceConfig};
 use anyhow::{bail, Context, Result};
 use directories::BaseDirs;
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
 };
@@ -127,6 +128,70 @@ impl<'a> TtsCacheInput<'a> {
     }
 }
 
+pub fn collect_prompt_texts(config: &Config) -> Vec<String> {
+    let mut prompts = PromptCollector::default();
+
+    for tool in &config.tools {
+        prompts.push(&tool.label);
+        for tab in &tool.tabs {
+            prompts.push(&tab.label);
+            for item in &tab.items {
+                prompts.push(&item.label);
+            }
+        }
+    }
+
+    for tab in &config.global_tabs {
+        prompts.push(&tab.label);
+        for item in &tab.items {
+            prompts.push(&item.label);
+        }
+    }
+
+    for action in &config.actions {
+        match action {
+            ActionConfig::Internal(action) => {
+                if let Some(text) = action.text.as_deref() {
+                    prompts.push(text);
+                }
+            }
+            ActionConfig::Command(action) => {
+                if let Some(text) = action.feedback.start.as_deref() {
+                    prompts.push(text);
+                }
+                if let Some(text) = action.feedback.success.as_deref() {
+                    prompts.push(text);
+                }
+                if let Some(text) = action.feedback.failure.as_deref() {
+                    prompts.push(text);
+                }
+            }
+        }
+    }
+
+    prompts.into_vec()
+}
+
+#[derive(Default)]
+struct PromptCollector {
+    seen: HashSet<String>,
+    prompts: Vec<String>,
+}
+
+impl PromptCollector {
+    fn push(&mut self, text: &str) {
+        let text = text.trim();
+        if text.is_empty() || !self.seen.insert(text.to_string()) {
+            return;
+        }
+        self.prompts.push(text.to_string());
+    }
+
+    fn into_vec(self) -> Vec<String> {
+        self.prompts
+    }
+}
+
 fn resolve_tts_cache_dir(configured_dir: Option<&Path>) -> Result<PathBuf> {
     if let Some(dir) = configured_dir {
         return Ok(dir.to_path_buf());
@@ -163,7 +228,11 @@ fn path_key(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{CacheConfig, Config, GlobalDefaults};
+    use crate::config::{
+        ActiveHooks, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
+        InternalActionConfig, InternalCommand, ItemConfig, TabConfig, ToolConfig,
+    };
+    use std::collections::HashMap;
     use tempfile::TempDir;
 
     fn make_config(
@@ -249,6 +318,93 @@ mod tests {
         assert_eq!(
             cache.read_wav(&input).expect("read hit"),
             Some(b"RIFFwav".to_vec())
+        );
+    }
+
+    #[test]
+    fn collects_unique_prompt_texts_in_stable_order() {
+        let config = Config {
+            default_tool: "radio".to_string(),
+            voice: VoiceConfig {
+                model_path: PathBuf::from("/voices/en.onnx"),
+                config_path: PathBuf::from("/voices/en.json"),
+            },
+            cache: CacheConfig::default(),
+            globals: GlobalDefaults::default(),
+            tools: vec![ToolConfig {
+                id: "radio".to_string(),
+                label: "Radio".to_string(),
+                active_ptt_hold_ms: None,
+                active_hooks: ActiveHooks::default(),
+                tabs: vec![TabConfig {
+                    id: "local".to_string(),
+                    label: "Local".to_string(),
+                    items: vec![
+                        ItemConfig {
+                            id: "mute".to_string(),
+                            label: "Mute".to_string(),
+                            primary_action: "say-muted".to_string(),
+                            alternate_action: None,
+                        },
+                        ItemConfig {
+                            id: "radio-copy".to_string(),
+                            label: "Radio".to_string(),
+                            primary_action: "noop".to_string(),
+                            alternate_action: None,
+                        },
+                    ],
+                }],
+            }],
+            global_tabs: vec![TabConfig {
+                id: "tools".to_string(),
+                label: "Tools".to_string(),
+                items: vec![ItemConfig {
+                    id: "radio".to_string(),
+                    label: "Radio".to_string(),
+                    primary_action: "switch-radio".to_string(),
+                    alternate_action: None,
+                }],
+            }],
+            actions: vec![
+                ActionConfig::Internal(InternalActionConfig {
+                    id: "say-muted".to_string(),
+                    command: InternalCommand::Speak,
+                    tool: None,
+                    text: Some("Muted".to_string()),
+                }),
+                ActionConfig::Internal(InternalActionConfig {
+                    id: "noop".to_string(),
+                    command: InternalCommand::Noop,
+                    tool: None,
+                    text: Some("   ".to_string()),
+                }),
+                ActionConfig::Command(CommandActionConfig {
+                    id: "run".to_string(),
+                    argv: vec!["date".to_string()],
+                    shell: None,
+                    cwd: None,
+                    env: HashMap::new(),
+                    timeout_ms: None,
+                    feedback: FeedbackConfig {
+                        start: Some("Running".to_string()),
+                        success: Some("Done".to_string()),
+                        failure: Some("Muted".to_string()),
+                    },
+                }),
+            ],
+        };
+
+        assert_eq!(
+            collect_prompt_texts(&config),
+            vec![
+                "Radio".to_string(),
+                "Local".to_string(),
+                "Mute".to_string(),
+                "Tools".to_string(),
+                "Muted".to_string(),
+                "Running".to_string(),
+                "Done".to_string(),
+            ]
         );
     }
 }

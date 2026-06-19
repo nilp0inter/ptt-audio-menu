@@ -19,7 +19,7 @@ use input::InputNormalizer;
 use menu::{MenuOutcome, MenuState};
 use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
-use tts::TtsCache;
+use tts::{collect_prompt_texts, TtsCache};
 
 const DEVICE_ADDR: &str = "00:02:5B:55:FF:01";
 
@@ -35,6 +35,7 @@ async fn main() -> Result<()> {
     let config_path = resolve_config_path(cli.config)?;
     let config = load_config(&config_path)?;
     let tts_cache = TtsCache::new(&config)?;
+    let prompt_texts = collect_prompt_texts(&config);
     let active_ptt_hold_threshold = Duration::from_millis(config.globals.active_ptt_hold_ms);
 
     println!(
@@ -44,6 +45,7 @@ async fn main() -> Result<()> {
         config.globals.active_ptt_hold_ms
     );
     println!("tts cache dir={}", tts_cache.dir().display());
+    println!("tts prompt count={}", prompt_texts.len());
     println!("device addr={DEVICE_ADDR}");
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut parser = Parser::default();

@@ -24,7 +24,7 @@ nix develop --command cargo check
 
 ## Current Code Layout
 
-- `src/main.rs`: application entry point, hardcoded target device address, RFCOMM read loop, raw diagnostic output, parser event output.
+- `src/main.rs`: application entry point, config/cache/prompt-catalog startup wiring, hardcoded target device address, RFCOMM read loop, raw diagnostic output, parser event output.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance.
 - `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.
 - `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, PTT threshold handling, and input semantics unit tests.
@@ -32,4 +32,4 @@ nix develop --command cargo check
 - `src/menu.rs`: menu phase/focus state, active/global control tab resolution, input-to-action outcome mapping, and menu state unit tests.
 - `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.
 - `src/commands.rs`: async argv-list command runner, serial execution guard, optional timeout handling, Unix process-group cancellation, and command runner unit tests.
-- `src/tts.rs`: TTS cache directory resolution, stable prompt hash keys, placeholder Piper settings, WAV cache read/write helpers, and TTS cache unit tests.
+- `src/tts.rs`: TTS cache directory resolution, stable prompt hash keys, placeholder Piper settings, prompt text collection, WAV cache read/write helpers, and TTS cache unit tests.

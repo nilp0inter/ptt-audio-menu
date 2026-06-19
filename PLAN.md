@@ -134,7 +134,7 @@ Most core runtime behavior is now wired, but diagnostics still use ad hoc `print
 
 ## Leg 12: NixOS and Home Manager Module Foundation
 
-Status: pending
+Status: complete
 
 The core runtime now matches the design closely enough that new feature work should pause. The next step is to improve system integration through Nix modules:
 
@@ -143,3 +143,13 @@ The core runtime now matches the design closely enough that new feature work sho
 - Add a Home Manager module for user-level installation and optional user service wiring where practical.
 - Add flake checks that evaluate the package and module examples without requiring Bluetooth hardware.
 - Document module usage and any intentionally deferred hardware/e2e checks.
+
+## Leg 13: NixOS Module Runtime Smoke Checks
+
+Status: pending
+
+The flake now builds the package and evaluates module examples, but it still does not exercise a NixOS VM runtime path. The next integration step should stay focused on module/service behavior rather than new application features:
+
+- Add a minimal NixOS VM check that enables the service with a dummy executable package and verifies the generated systemd unit can start.
+- Add a Home Manager-compatible evaluation or activation check if a lightweight pattern is available without adding a hard Home Manager flake input.
+- Keep Bluetooth/RSM/audio hardware tests documented as manual or host-specific until there is a reliable test device setup.

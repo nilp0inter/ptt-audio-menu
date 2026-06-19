@@ -12,6 +12,15 @@
 ## Build and Test
 
 - The project uses a Nix flake dev shell.
+- The flake now also exposes `packages.${system}.default`, `checks`, `nixosModules.default`, and `homeManagerModules.default`.
+- Build/evaluate the integration surface with:
+
+```sh
+nix build .#packages.x86_64-linux.default
+nix flake check
+```
+
+- `nix flake check` may warn that `homeManagerModules` is an unknown non-core flake output; this is expected for Home Manager consumers.
 - Run Rust verification inside the shell:
 
 ```sh
@@ -22,6 +31,7 @@ nix develop --command cargo check
 
 - Running `cargo test` directly on a host without dbus development files fails while building `libdbus-sys`.
 - The dev shell now also carries native audio/TTS build inputs for Kira/Piper: ALSA, OpenSSL, eSpeak-ng, libclang, glibc bindgen headers, and CMake. It sets `PIPER_ESPEAKNG_DATA_DIRECTORY` to the Nix-provided eSpeak data directory for local runs.
+- The Nix package enables `ort`'s pkg-config path through a direct dependency and uses Nixpkgs `onnxruntime`. It also links `sonic` explicitly because `espeak-rs-sys` can find libsonic during CMake configuration without emitting `-lsonic` to Cargo.
 
 ## Current Code Layout
 
@@ -35,3 +45,7 @@ nix develop --command cargo check
 - `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.
 - `src/commands.rs`: async argv-list command runner, serial execution guard, optional timeout handling, Unix process-group cancellation, and command runner unit tests.
 - `src/tts.rs`: TTS cache directory resolution, stable prompt hash keys, placeholder Piper settings, prompt text collection, Piper rendering to PCM WAV, WAV cache read/write helpers, and TTS cache unit tests.
+- `nix/package.nix`: Nix package derivation for the Rust binary and native audio/TTS/ONNX dependencies.
+- `nix/nixos-module.nix`: NixOS service module for system-level installation and systemd wiring.
+- `nix/home-manager-module.nix`: Home Manager module for package installation and optional user-level service wiring.
+- `docs/nix-modules.md`: NixOS/Home Manager usage examples and check limitations.

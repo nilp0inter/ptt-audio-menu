@@ -140,3 +140,20 @@
 - Verified with `nix develop --command cargo test` (46 unit tests passed).
 - Verified with `nix develop --command cargo check`.
 - Marked Leg 11 complete and added Leg 12 for NixOS/Home Manager module foundation.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 12: NixOS and Home Manager module foundation.
+- Found the flake only exposed a development shell, so added a reusable `nix/package.nix` derivation and `packages.default`/`packages.ptt-audio-menu` flake outputs.
+- Added a NixOS module under `nix/nixos-module.nix` with package installation, configurable config path, user/group, supplementary Bluetooth/audio groups, service environment, log level, extra args, and a systemd service.
+- Added a Home Manager module under `nix/home-manager-module.nix` with package installation and optional user-level systemd service wiring.
+- Added flake checks that build the package and evaluate NixOS/Home Manager module examples using a dummy package where hardware is not required.
+- Added `docs/nix-modules.md` with NixOS and Home Manager usage examples and documented that hardware connection/audio playback remain runtime checks.
+- Initial flake evaluation failed because newly created Nix files were not staged; staged only the files from this change so flakes could see them.
+- Initial Home Manager module eval failed because the check used `lib.evalModules` without Home Manager's own option declarations; added small stub options for `home.packages`, `home.stateVersion`, and `systemd.user.services`.
+- Initial Nix package build failed because `ort-sys` attempted to download ONNX Runtime binaries in the sandbox and bundled `espeak-ng` attempted to fetch libsonic through CMake.
+- Added a direct `ort` dependency with `pkg-config` enabled, added Nixpkgs `onnxruntime` and `sonic` package inputs, and added a Nix-only `-lsonic` link argument because `espeak-rs-sys` did not emit the sonic link flag.
+- Verified with `nix build .#packages.x86_64-linux.default`.
+- Verified with `nix flake check`; Nix warned that `homeManagerModules` is an unknown non-core flake output, but all checks passed.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (46 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 12 complete and added Leg 13 for NixOS module runtime smoke checks.

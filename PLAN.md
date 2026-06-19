@@ -229,3 +229,5 @@ The implementation and module integration are structurally covered, but the full
 - If capacity is available and a check fails for a real build, module, or runtime-smoke reason, keep edits limited to check reliability or Nix integration fixes.
 
 Latest local audit: `/nix/store` is still a 3.9 GiB overlay with 2.6 GiB available, which is less headroom than the roughly 3.2 GiB that already failed during Leg 18. Re-running the full package plus VM closure here would only reproduce the capacity failure. Re-verified the flake evaluation surface with `nix flake check --no-build`, whitespace with `git diff --check`, and the lightweight module checks with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+
+Follow-up audit: `/nix/store` remains a 3.9 GiB overlay with 2.6 GiB available. The local blocker is unchanged, so the full package plus VM closure is still deferred to a larger store. Re-verified `nix flake check --no-build`, `git diff --check`, and `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.

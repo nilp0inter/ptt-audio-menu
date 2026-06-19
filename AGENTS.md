@@ -39,6 +39,7 @@ nix build .#checks.x86_64-linux.nixos-service-vm
 - During the Leg 20 follow-up audit, `/nix/store` was still a 3.9 GiB overlay with 2.6 GiB available. The local blocker is unchanged; do not retry the full package plus VM closure here unless store capacity changes.
 - During the next Leg 20 follow-up audit, `/nix/store` remained a 3.9 GiB overlay with 2.6 GiB available. Continue treating the full package plus VM closure as locally blocked on this machine.
 - During the current Leg 20 audit, `/nix/store` remained a 3.9 GiB overlay with 2.6 GiB available. Continue treating the full package plus VM closure as locally blocked on this machine.
+- During the latest Leg 20 follow-up audit, `/nix/store` remained a 3.9 GiB overlay with 2.6 GiB available. Continue treating the full package plus VM closure as locally blocked on this machine; use `nix flake check --no-build` and lightweight module checks for local verification.
 - Run Rust verification inside the shell:
 
 ```sh

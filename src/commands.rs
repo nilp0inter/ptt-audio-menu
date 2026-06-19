@@ -170,6 +170,7 @@ mod tests {
             cwd: None,
             env: HashMap::new(),
             timeout_ms: None,
+            feedback: Default::default(),
         }
     }
 

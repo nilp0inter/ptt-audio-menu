@@ -14,10 +14,10 @@ mod parser;
 mod transport;
 mod tts;
 
-use actions::{ActionDispatcher, ActionEffect};
+use actions::{ActionDispatcher, ActionEffect, CommandFeedback};
 use audio::AudioPlayer;
-use commands::CommandRunner;
-use config::{load_config, resolve_config_path, InternalCommand};
+use commands::{CommandExecution, CommandOutcome, CommandRunner};
+use config::{load_config, resolve_config_path, Config, InternalCommand};
 use input::InputNormalizer;
 use menu::{MenuOutcome, MenuState};
 use parser::{Event, Parser};
@@ -36,77 +36,115 @@ struct Cli {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     let config_path = resolve_config_path(cli.config)?;
-    let config = load_config(&config_path)?;
-    let tts_cache = TtsCache::new(&config)?;
-    let prompt_texts = collect_prompt_texts(&config);
-    let mut tts_renderer = TtsRenderer::new(&config.voice)?;
-    let cached_prompts =
-        prerender_prompts(&tts_cache, &mut tts_renderer, &config.voice, &prompt_texts)?;
-    let prompt_audio = PromptAudioIndex::new(cached_prompts);
-    let active_ptt_hold_threshold = Duration::from_millis(config.globals.active_ptt_hold_ms);
+    let mut runtime = RuntimeState::load(config_path.clone())?;
+    let active_ptt_hold_threshold =
+        Duration::from_millis(runtime.config.globals.active_ptt_hold_ms);
 
     println!(
         "config path={} default_tool={} active_ptt_hold_ms={}",
         config_path.display(),
-        config.default_tool,
-        config.globals.active_ptt_hold_ms
+        runtime.config.default_tool,
+        runtime.config.globals.active_ptt_hold_ms
     );
-    println!("tts cache dir={}", tts_cache.dir().display());
-    println!("tts prompt count={}", prompt_texts.len());
+    println!("tts cache dir={}", runtime.tts_cache_dir.display());
+    println!("tts prompt count={}", runtime.prompt_count);
     println!("device addr={DEVICE_ADDR}");
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut audio = AudioPlayer::new()?;
     let mut parser = Parser::default();
     let mut input = InputNormalizer::new(active_ptt_hold_threshold);
-    let mut menu = MenuState::new(&config)?;
-    let actions = ActionDispatcher::new(&config)?;
+    let mut menu = MenuState::new(&runtime.config)?;
     let command_runner = CommandRunner::new();
+    let (command_tx, mut command_rx) = tokio::sync::mpsc::unbounded_channel();
     let mut buf = [0u8; 1024];
 
-    play_prompt(&mut audio, &prompt_audio, &menu.active_tool(&config).label)?;
+    play_prompt(
+        &mut audio,
+        &runtime.prompt_audio,
+        &menu.active_tool(&runtime.config).label,
+    )?;
 
     loop {
-        let n = stream.read(&mut buf).await.context("read RFCOMM stream")?;
-        if n == 0 {
-            println!("stream eof");
-            break;
+        tokio::select! {
+            read_result = stream.read(&mut buf) => {
+                let n = read_result.context("read RFCOMM stream")?;
+                if n == 0 {
+                    println!("stream eof");
+                    break;
+                }
+                process_chunk(
+                    &buf[..n],
+                    &mut parser,
+                    &mut input,
+                    &mut menu,
+                    &mut runtime,
+                    &command_runner,
+                    &command_tx,
+                    &mut audio,
+                )
+                .await?;
+            }
+            Some(completion) = command_rx.recv() => {
+                handle_command_completion(&mut audio, &runtime.prompt_audio, completion)?;
+            }
         }
+    }
 
-        let chunk = &buf[..n];
-        println!(
-            "raw hex={} ascii={:?}",
-            hex(chunk),
-            String::from_utf8_lossy(chunk)
-        );
+    Ok(())
+}
 
-        for event in parser.push(chunk) {
-            print_raw_event(event);
-            for input_event in input.push(event, Instant::now()) {
-                println!("input event={input_event:?} mode={:?}", input.mode());
-                for menu_outcome in menu.push(&config, input_event) {
+async fn process_chunk(
+    chunk: &[u8],
+    parser: &mut Parser,
+    input: &mut InputNormalizer,
+    menu: &mut MenuState,
+    runtime: &mut RuntimeState,
+    command_runner: &CommandRunner,
+    command_tx: &tokio::sync::mpsc::UnboundedSender<CommandCompletion>,
+    audio: &mut AudioPlayer,
+) -> Result<()> {
+    println!(
+        "raw hex={} ascii={:?}",
+        hex(chunk),
+        String::from_utf8_lossy(chunk)
+    );
+
+    for event in parser.push(chunk) {
+        print_raw_event(event);
+        for input_event in input.push(event, Instant::now()) {
+            println!("input event={input_event:?} mode={:?}", input.mode());
+            for menu_outcome in menu.push(&runtime.config, input_event) {
+                println!(
+                    "menu outcome={menu_outcome:?} phase={:?} active_tool={}",
+                    menu.phase(),
+                    menu.active_tool(&runtime.config).id
+                );
+                handle_menu_audio(
+                    audio,
+                    &runtime.prompt_audio,
+                    &runtime.config,
+                    menu,
+                    &menu_outcome,
+                )?;
+                if let MenuOutcome::Action { action_id } = menu_outcome {
+                    let effect = runtime
+                        .actions
+                        .dispatch(&runtime.config, menu, &action_id)?;
                     println!(
-                        "menu outcome={menu_outcome:?} phase={:?} active_tool={}",
+                        "action effect={effect:?} phase={:?} active_tool={}",
                         menu.phase(),
-                        menu.active_tool(&config).id
+                        menu.active_tool(&runtime.config).id
                     );
-                    handle_menu_audio(&mut audio, &prompt_audio, &config, &menu, &menu_outcome)?;
-                    if let MenuOutcome::Action { action_id } = menu_outcome {
-                        let effect = actions.dispatch(&config, &mut menu, &action_id)?;
-                        println!(
-                            "action effect={effect:?} phase={:?} active_tool={}",
-                            menu.phase(),
-                            menu.active_tool(&config).id
-                        );
-                        handle_action_effect(
-                            &command_runner,
-                            &mut audio,
-                            &prompt_audio,
-                            &config,
-                            &menu,
-                            effect,
-                        )
-                        .await?;
-                    }
+                    handle_action_effect(
+                        command_runner,
+                        command_tx,
+                        audio,
+                        runtime,
+                        menu,
+                        input,
+                        effect,
+                    )
+                    .await?;
                 }
             }
         }
@@ -117,23 +155,33 @@ async fn main() -> Result<()> {
 
 async fn handle_action_effect(
     runner: &CommandRunner,
+    command_tx: &tokio::sync::mpsc::UnboundedSender<CommandCompletion>,
     audio: &mut AudioPlayer,
-    prompt_audio: &PromptAudioIndex,
-    config: &config::Config,
-    menu: &MenuState,
+    runtime: &mut RuntimeState,
+    menu: &mut MenuState,
+    input: &mut InputNormalizer,
     effect: ActionEffect,
 ) -> Result<()> {
     match effect {
         ActionEffect::CommandQueued { command } => {
+            if let Some(text) = command.feedback.start.as_deref() {
+                play_prompt(audio, &runtime.prompt_audio, text)?;
+            }
             let runner = runner.clone();
+            let command_tx = command_tx.clone();
             tokio::spawn(async move {
                 let action_id = command.action_id.clone();
-                match runner.run(command).await {
-                    Ok(execution) => println!(
-                        "command action={} outcome={:?}",
-                        execution.action_id, execution.outcome
-                    ),
-                    Err(err) => println!("command action {action_id} failed: {err:#}"),
+                let feedback = command.feedback.clone();
+                let result = runner.run(command).await;
+                if command_tx
+                    .send(CommandCompletion {
+                        action_id,
+                        feedback,
+                        result,
+                    })
+                    .is_err()
+                {
+                    println!("command completion receiver dropped");
                 }
             });
         }
@@ -148,8 +196,8 @@ async fn handle_action_effect(
             command: InternalCommand::Speak,
             action_id,
         } => {
-            if let Some(text) = speak_action_text(config, &action_id) {
-                play_prompt(audio, prompt_audio, text)?;
+            if let Some(text) = speak_action_text(&runtime.config, &action_id) {
+                play_prompt(audio, &runtime.prompt_audio, text)?;
             }
         }
         ActionEffect::DeferredInternal {
@@ -158,13 +206,89 @@ async fn handle_action_effect(
         } => {
             audio.stop_current();
         }
+        ActionEffect::DeferredInternal {
+            command: InternalCommand::ReloadConfig,
+            action_id,
+        } => match RuntimeState::load(runtime.config_path.clone()) {
+            Ok(next_runtime) => {
+                *runtime = next_runtime;
+                *menu = MenuState::new(&runtime.config)?;
+                *input = InputNormalizer::new(Duration::from_millis(
+                    runtime.config.globals.active_ptt_hold_ms,
+                ));
+                play_prompt(
+                    audio,
+                    &runtime.prompt_audio,
+                    &menu.active_tool(&runtime.config).label,
+                )?;
+                println!(
+                    "reload_config action={} path={} prompt_count={}",
+                    action_id,
+                    runtime.config_path.display(),
+                    runtime.prompt_count
+                );
+            }
+            Err(err) => {
+                if let Some(text) = speak_action_text(&runtime.config, &action_id) {
+                    let _ = play_prompt(audio, &runtime.prompt_audio, text);
+                }
+                println!(
+                    "reload_config action={} path={} failed: {err:#}",
+                    action_id,
+                    runtime.config_path.display()
+                );
+                std::process::exit(1);
+            }
+        },
         ActionEffect::SwitchedTool { .. } => {
-            play_prompt(audio, prompt_audio, &menu.active_tool(config).label)?;
+            play_prompt(
+                audio,
+                &runtime.prompt_audio,
+                &menu.active_tool(&runtime.config).label,
+            )?;
         }
         _ => {}
     }
 
     Ok(())
+}
+
+fn handle_command_completion(
+    audio: &mut AudioPlayer,
+    prompt_audio: &PromptAudioIndex,
+    completion: CommandCompletion,
+) -> Result<()> {
+    match completion.result {
+        Ok(execution) => {
+            println!(
+                "command action={} outcome={:?}",
+                execution.action_id, execution.outcome
+            );
+            let text = command_outcome_feedback(&completion.feedback, &execution);
+            if let Some(text) = text {
+                play_prompt(audio, prompt_audio, text)?;
+            }
+        }
+        Err(err) => {
+            println!("command action {} failed: {err:#}", completion.action_id);
+            if let Some(text) = completion.feedback.failure.as_deref() {
+                play_prompt(audio, prompt_audio, text)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn command_outcome_feedback<'a>(
+    feedback: &'a CommandFeedback,
+    execution: &CommandExecution,
+) -> Option<&'a str> {
+    match execution.outcome {
+        CommandOutcome::Success => feedback.success.as_deref(),
+        CommandOutcome::Failed { .. } | CommandOutcome::TimedOut | CommandOutcome::Cancelled => {
+            feedback.failure.as_deref()
+        }
+    }
 }
 
 fn handle_menu_audio(
@@ -197,6 +321,47 @@ fn speak_action_text<'a>(config: &'a config::Config, action_id: &str) -> Option<
         config::ActionConfig::Internal(action) if action.id == action_id => action.text.as_deref(),
         _ => None,
     })
+}
+
+#[derive(Debug)]
+struct RuntimeState {
+    config_path: PathBuf,
+    config: Config,
+    tts_cache_dir: PathBuf,
+    prompt_count: usize,
+    prompt_audio: PromptAudioIndex,
+    actions: ActionDispatcher,
+}
+
+impl RuntimeState {
+    fn load(config_path: PathBuf) -> Result<Self> {
+        let config = load_config(&config_path)?;
+        let tts_cache = TtsCache::new(&config)?;
+        let tts_cache_dir = tts_cache.dir().to_path_buf();
+        let prompt_texts = collect_prompt_texts(&config);
+        let mut tts_renderer = TtsRenderer::new(&config.voice)?;
+        let cached_prompts =
+            prerender_prompts(&tts_cache, &mut tts_renderer, &config.voice, &prompt_texts)?;
+        let prompt_count = prompt_texts.len();
+        let prompt_audio = PromptAudioIndex::new(cached_prompts);
+        let actions = ActionDispatcher::new(&config)?;
+
+        Ok(Self {
+            config_path,
+            config,
+            tts_cache_dir,
+            prompt_count,
+            prompt_audio,
+            actions,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct CommandCompletion {
+    action_id: String,
+    feedback: CommandFeedback,
+    result: Result<CommandExecution>,
 }
 
 #[derive(Debug)]
@@ -236,4 +401,45 @@ fn hex(bytes: &[u8]) -> String {
         out.push(HEX[(byte & 0x0f) as usize] as char);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn execution(outcome: CommandOutcome) -> CommandExecution {
+        CommandExecution {
+            action_id: "run".to_string(),
+            outcome,
+        }
+    }
+
+    #[test]
+    fn command_outcome_feedback_uses_success_or_failure_label() {
+        let feedback = CommandFeedback {
+            start: Some("Starting".to_string()),
+            success: Some("Done".to_string()),
+            failure: Some("Failed".to_string()),
+        };
+
+        assert_eq!(
+            command_outcome_feedback(&feedback, &execution(CommandOutcome::Success)),
+            Some("Done")
+        );
+        assert_eq!(
+            command_outcome_feedback(
+                &feedback,
+                &execution(CommandOutcome::Failed { code: Some(1) })
+            ),
+            Some("Failed")
+        );
+        assert_eq!(
+            command_outcome_feedback(&feedback, &execution(CommandOutcome::TimedOut)),
+            Some("Failed")
+        );
+        assert_eq!(
+            command_outcome_feedback(&feedback, &execution(CommandOutcome::Cancelled)),
+            Some("Failed")
+        );
+    }
 }

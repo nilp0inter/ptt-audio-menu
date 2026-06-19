@@ -25,7 +25,7 @@ nix develop --command cargo check
 
 ## Current Code Layout
 
-- `src/main.rs`: application entry point, config/cache/prompt-catalog startup wiring, TTS prerendering, audio playback wiring, hardcoded target device address, RFCOMM read loop, raw diagnostic output, parser/menu/action event output.
+- `src/main.rs`: application entry point, reloadable config/cache/prompt-catalog runtime state, TTS prerendering, audio playback wiring, hardcoded target device address, RFCOMM read loop, command-completion feedback handling, raw diagnostic output, parser/menu/action event output.
 - `src/audio.rs`: Kira-backed interrupt-latest WAV prompt playback and stop-current handling.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance.
 - `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.

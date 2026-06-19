@@ -110,7 +110,7 @@ The runtime now knows which prompt texts need speech, but it still does not rend
 
 ## Leg 10: Command Feedback and Runtime Control Actions
 
-Status: pending
+Status: complete
 
 The program now prerenders configured prompts and uses cached audio for startup, navigation, `speak`, tool switching, and `stop_audio`, but command feedback and reload semantics are still minimal. The next step is to finish the remaining runtime action effects:
 
@@ -119,3 +119,15 @@ The program now prerenders configured prompts and uses cached audio for startup,
 - Implement `reload_config` so it validates and prerenders the replacement config, applies it only on success, and exits/logs/speaks failure on validation or render errors.
 - Keep `cancel_running_action` and `stop_audio` behavior intact.
 - Add focused tests around feedback effect data and any reload helper that can be tested without Bluetooth hardware.
+
+## Leg 11: Tracing Logging Foundation
+
+Status: pending
+
+Most core runtime behavior is now wired, but diagnostics still use ad hoc `println!` output. The next step is to align runtime observability with `DESIGN.md` while keeping raw Bluetooth/event logs available:
+
+- Add `tracing` and `tracing-subscriber` dependencies.
+- Initialize stdout logging at startup, with an environment filter suitable for normal info-level operation and debug-level raw diagnostics.
+- Replace runtime `println!` diagnostics in `main.rs` with structured `tracing` calls.
+- Keep raw RFCOMM chunks, parser events, input events, menu outcomes, action effects, command completions, and reload failures visible at debug/info levels as appropriate.
+- Preserve current behavior and tests; add minimal coverage only if helper code is introduced.

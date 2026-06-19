@@ -116,3 +116,16 @@
 - Verified with `nix develop --command cargo test` (44 unit tests passed).
 - Verified with `nix develop --command cargo check`.
 - Marked Leg 9 complete and added Leg 10 for command feedback and reload runtime actions.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 10: command feedback and runtime control actions.
+- Added command feedback labels to dispatched command requests so start/success/failure prompts survive the action-dispatch boundary.
+- Changed the runtime loop to `tokio::select!` over RFCOMM reads and command-completion messages, allowing command completion feedback to play even when no new Bluetooth bytes arrive.
+- Wired command start feedback before spawning the background command and success/failure feedback after `CommandRunner` completion, treating failed, timed out, and cancelled commands as failure feedback.
+- Added a reloadable runtime state wrapper that owns the validated config, action dispatcher, TTS cache path, prompt count, and prompt audio index.
+- Implemented `reload_config` by loading, validating, prerendering, and indexing the replacement config before swapping runtime state; on reload failure the runtime logs the error, optionally plays the reload action text from the old prompt cache, and exits.
+- Reset menu state and input normalization after a successful reload so the new default tool and active PTT threshold take effect immediately.
+- Added focused tests for command feedback propagation and command outcome feedback selection.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (46 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 10 complete and added Leg 11 for tracing-backed stdout logging.

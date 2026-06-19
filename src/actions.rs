@@ -12,6 +12,14 @@ pub struct CommandRequest {
     pub cwd: Option<PathBuf>,
     pub env: HashMap<String, String>,
     pub timeout_ms: Option<u64>,
+    pub feedback: CommandFeedback,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CommandFeedback {
+    pub start: Option<String>,
+    pub success: Option<String>,
+    pub failure: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -104,6 +112,11 @@ fn command_queued_effect(action: &CommandActionConfig) -> ActionEffect {
             cwd: action.cwd.clone(),
             env: action.env.clone(),
             timeout_ms: action.timeout_ms,
+            feedback: CommandFeedback {
+                start: action.feedback.start.clone(),
+                success: action.feedback.success.clone(),
+                failure: action.feedback.failure.clone(),
+            },
         },
     }
 }
@@ -272,6 +285,40 @@ mod tests {
                     cwd: None,
                     env: HashMap::new(),
                     timeout_ms: None,
+                    feedback: CommandFeedback::default(),
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn command_actions_carry_feedback_labels() {
+        let mut config = config();
+        let ActionConfig::Command(action) = config.actions.last_mut().unwrap() else {
+            panic!("last action should be command");
+        };
+        action.feedback = FeedbackConfig {
+            start: Some("Starting".to_string()),
+            success: Some("Done".to_string()),
+            failure: Some("Failed".to_string()),
+        };
+        let dispatcher = ActionDispatcher::new(&config).unwrap();
+        let mut menu = MenuState::new(&config).unwrap();
+
+        assert_eq!(
+            dispatcher.dispatch(&config, &mut menu, "run-date").unwrap(),
+            ActionEffect::CommandQueued {
+                command: CommandRequest {
+                    action_id: "run-date".to_string(),
+                    argv: vec!["date".to_string()],
+                    cwd: None,
+                    env: HashMap::new(),
+                    timeout_ms: None,
+                    feedback: CommandFeedback {
+                        start: Some("Starting".to_string()),
+                        success: Some("Done".to_string()),
+                        failure: Some("Failed".to_string()),
+                    },
                 },
             }
         );

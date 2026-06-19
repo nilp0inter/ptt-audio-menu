@@ -208,3 +208,13 @@
 - Marked Leg 16 complete and added Leg 17 for Home Manager service CLI smoke checks.
 - Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
 - Verified with `nix build .#checks.x86_64-linux.nixos-real-package-config`.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 17: Home Manager service CLI smoke checks.
+- Added Home Manager real-package eval checks that use the generated user service `ExecStart` without adding a Home Manager flake input.
+- Added `checks.${system}.home-manager-real-package-help`, which verifies the real package is installed in `home.packages`, invokes the Home Manager-generated `ExecStart` with `--help`, and checks the Clap output includes `--config` and `--check-config`.
+- Added `checks.${system}.home-manager-real-package-config`, which wires `programs.ptt-audio-menu.configPath` plus `extraArgs = [ "--check-config" ]`, verifies the generated argument order, and validates `examples/config.validation.toml` through the generated user service command from the source tree.
+- Updated docs and agent notes to include the new Home Manager checks and their hardware-free scope.
+- Marked Leg 17 complete and added Leg 18 for a full flake integration recheck without new runtime feature work.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Verified with `nix build .#checks.x86_64-linux.home-manager-real-package-help`.
+- Verified with `nix build .#checks.x86_64-linux.home-manager-real-package-config`.

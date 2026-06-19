@@ -143,6 +143,69 @@
             ];
             specialArgs = { inherit pkgs; };
           };
+          homeRealHelpEval = lib.evalModules {
+            modules = [
+              ({ lib, ... }: {
+                options.home = {
+                  packages = lib.mkOption {
+                    type = lib.types.listOf lib.types.package;
+                    default = [ ];
+                  };
+                  stateVersion = lib.mkOption {
+                    type = lib.types.str;
+                    default = "25.11";
+                  };
+                };
+                options.systemd.user.services = lib.mkOption {
+                  type = lib.types.attrsOf lib.types.anything;
+                  default = { };
+                };
+              })
+              ./nix/home-manager-module.nix
+              {
+                programs.ptt-audio-menu = {
+                  enable = true;
+                  package = self.packages.${system}.default;
+                  service.enable = true;
+                  extraArgs = [ "--help" ];
+                };
+                systemd.user.services = lib.mkDefault { };
+              }
+            ];
+            specialArgs = { inherit pkgs; };
+          };
+          homeRealConfigEval = lib.evalModules {
+            modules = [
+              ({ lib, ... }: {
+                options.home = {
+                  packages = lib.mkOption {
+                    type = lib.types.listOf lib.types.package;
+                    default = [ ];
+                  };
+                  stateVersion = lib.mkOption {
+                    type = lib.types.str;
+                    default = "25.11";
+                  };
+                };
+                options.systemd.user.services = lib.mkOption {
+                  type = lib.types.attrsOf lib.types.anything;
+                  default = { };
+                };
+              })
+              ./nix/home-manager-module.nix
+              {
+                programs.ptt-audio-menu = {
+                  enable = true;
+                  package = self.packages.${system}.default;
+                  configPath = "${self}/examples/config.validation.toml";
+                  service.enable = true;
+                  extraArgs = [ "--check-config" ];
+                };
+                systemd.user.services = lib.mkDefault { };
+              }
+            ];
+            specialArgs = { inherit pkgs; };
+          };
         in
         {
           package = self.packages.${system}.default;
@@ -162,6 +225,32 @@
             ''
               test -n "$execStart"
               grep -Fx '${dummyPackage}' <<< "$packages"
+              touch "$out"
+            '';
+          home-manager-real-package-help = pkgs.runCommand "ptt-audio-menu-home-manager-real-package-help-check"
+            {
+              execStart = homeRealHelpEval.config.systemd.user.services.ptt-audio-menu.Service.ExecStart;
+              packages = lib.concatMapStringsSep "\n" toString homeRealHelpEval.config.home.packages;
+            }
+            ''
+              grep -Fx '${self.packages.${system}.default}' <<< "$packages"
+              $execStart > help
+              grep -F "Usage:" help
+              grep -F -- "--config" help
+              grep -F -- "--check-config" help
+              touch "$out"
+            '';
+          home-manager-real-package-config = pkgs.runCommand "ptt-audio-menu-home-manager-real-package-config-check"
+            {
+              src = self;
+              execStart = homeRealConfigEval.config.systemd.user.services.ptt-audio-menu.Service.ExecStart;
+              packages = lib.concatMapStringsSep "\n" toString homeRealConfigEval.config.home.packages;
+            }
+            ''
+              grep -Fx '${self.packages.${system}.default}' <<< "$packages"
+              [[ "$execStart" == *"--config ${self}/examples/config.validation.toml --check-config"* ]]
+              (cd "$src" && $execStart) > log
+              grep -F "config validation passed" log
               touch "$out"
             '';
           nixos-real-package-help = pkgs.runCommand "ptt-audio-menu-nixos-real-package-help-check"

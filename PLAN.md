@@ -186,10 +186,20 @@ The real package now has a hardware-free config validation path, but the NixOS m
 
 ## Leg 17: Home Manager Service CLI Smoke Checks
 
-Status: pending
+Status: complete
 
 The NixOS module now has real-package hardware-free checks for both `--help` and config validation through module-generated `ExecStart`. The next module integration step should give the Home Manager service path the same kind of lightweight coverage without adding a Home Manager flake input:
 
 - Extend the existing Home Manager-compatible eval check or add a sibling derivation that uses the generated user service `ExecStart`.
 - Use the real package with a hardware-free CLI path such as `--help`, and, if practical, a config fixture with `--check-config`.
 - Keep the check lightweight and avoid starting a user systemd service, because Bluetooth/audio permissions remain host-specific.
+
+## Leg 18: Full Flake Integration Recheck
+
+Status: pending
+
+The Home Manager service path now has the same hardware-free real-package coverage as the NixOS module path. The next step should avoid new runtime features and focus on proving the complete integration surface still holds together:
+
+- Run the full flake check matrix, including package, module, real-package CLI/config checks, and the NixOS service VM when `/nix/store` capacity permits.
+- If store pressure prevents the full run, record the exact check subset that passed and any cleanup needed before retrying.
+- Keep any edits limited to check reliability, documentation accuracy, or small Nix-module integration fixes discovered by the full run.

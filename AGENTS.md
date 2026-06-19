@@ -30,3 +30,4 @@ nix develop --command cargo check
 - `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, PTT threshold handling, and input semantics unit tests.
 - `src/config.rs`: CLI config path resolution helpers, serde-backed TOML schema, validation, and config unit tests.
 - `src/menu.rs`: menu phase/focus state, active/global control tab resolution, input-to-action outcome mapping, and menu state unit tests.
+- `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.

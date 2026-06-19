@@ -62,6 +62,23 @@ impl MenuState {
         &config.tools[self.active_tool_index]
     }
 
+    pub fn switch_tool(&mut self, config: &Config, tool_id: &str) -> Result<()> {
+        let Some(active_tool_index) = config.tools.iter().position(|tool| tool.id == tool_id)
+        else {
+            bail!("unknown tool '{tool_id}'");
+        };
+
+        self.active_tool_index = active_tool_index;
+        self.phase = MenuPhase::Active;
+        self.selected_tab_index = 0;
+        self.selected_item_index = 0;
+        Ok(())
+    }
+
+    pub fn exit_control(&mut self) {
+        self.phase = MenuPhase::Active;
+    }
+
     pub fn push(&mut self, config: &Config, event: InputEvent) -> Vec<MenuOutcome> {
         match event {
             InputEvent::ActivePtt if self.phase == MenuPhase::Active => self

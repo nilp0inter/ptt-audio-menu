@@ -53,3 +53,15 @@
 - Marked Leg 4 complete and added Leg 5 for action dispatch foundation.
 - Created commit `43b1d7a` (`Add menu state foundation`).
 - `git push` succeeded, updating `main` on GitHub.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 5: action dispatch foundation.
+- Added `src/actions.rs` with an `ActionDispatcher` that indexes configured actions and turns action IDs into diagnostic effects.
+- Implemented immediate internal effects for `noop`, `switch_tool`, and `exit_control`.
+- Kept `speak`, reload/audio control internals, and command actions as recognized/deferred effects for later runtime backends.
+- Added explicit `MenuState::switch_tool` and `MenuState::exit_control` methods so actions mutate menu state through menu-owned invariants.
+- Wired the diagnostic runtime loop so `MenuOutcome::Action` values are dispatched and action effects are printed.
+- Added action dispatcher unit tests for action lookup, unknown action defense, no-op, switching tools, exiting control, command recognition without execution, and deferred internal actions.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (35 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 5 complete and added Leg 6 for the command runner foundation.

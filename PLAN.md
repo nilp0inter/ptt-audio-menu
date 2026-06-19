@@ -50,7 +50,7 @@ The program now validates configuration before connecting Bluetooth and has norm
 
 ## Leg 5: Action Dispatch Foundation
 
-Status: pending
+Status: complete
 
 Menu state now emits action IDs, but the runtime still only prints diagnostics. The next step is to introduce the action dispatch boundary while keeping audio/TTS and full command lifecycle small enough for a later leg:
 
@@ -59,3 +59,16 @@ Menu state now emits action IDs, but the runtime still only prints diagnostics. 
 - Keep external command actions as queued/recognized but not fully executed until the command runner leg.
 - Update `MenuState` as needed so internal `switch_tool` and `exit_control` can mutate menu state through explicit methods instead of bypassing menu invariants.
 - Add focused tests for action lookup, unknown action defense, switching tools, and exiting control.
+
+## Leg 6: Command Runner Foundation
+
+Status: pending
+
+Action dispatch now recognizes command actions but does not execute them. The next step is to add the first real action backend while keeping audio feedback and reload semantics for later:
+
+- Add an async command runner that receives queued command effects and runs argv-list commands without a shell.
+- Ensure command actions run serially, preserving the one-action-at-a-time runtime model.
+- Support optional per-action timeout.
+- Start the process in its own process group on Unix so later cancellation can target the group.
+- Wire `cancel_running_action` to terminate the running command process group where supported.
+- Add focused tests for serial command execution, timeout behavior, and cancellation.

@@ -105,7 +105,7 @@ pub enum ActionConfig {
 }
 
 impl ActionConfig {
-    fn id(&self) -> &str {
+    pub fn id(&self) -> &str {
         match self {
             Self::Internal(action) => &action.id,
             Self::Command(action) => &action.id,

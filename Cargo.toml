@@ -1,0 +1,12 @@
+[package]
+name = "ptt-audio-menu"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+
+[dependencies]
+anyhow = "1"
+bluer = { version = "0.17.4", features = ["bluetoothd", "rfcomm"] }
+futures = "0.3"
+tokio = { version = "1", features = ["io-util", "macros", "rt-multi-thread", "time"] }
+uuid = "1"

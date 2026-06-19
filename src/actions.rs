@@ -3,7 +3,16 @@ use crate::{
     menu::MenuState,
 };
 use anyhow::{bail, Result};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommandRequest {
+    pub action_id: String,
+    pub argv: Vec<String>,
+    pub cwd: Option<PathBuf>,
+    pub env: HashMap<String, String>,
+    pub timeout_ms: Option<u64>,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ActionEffect {
@@ -22,8 +31,7 @@ pub enum ActionEffect {
         command: InternalCommand,
     },
     CommandQueued {
-        action_id: String,
-        argv: Vec<String>,
+        command: CommandRequest,
     },
 }
 
@@ -90,8 +98,13 @@ impl ActionDispatcher {
 
 fn command_queued_effect(action: &CommandActionConfig) -> ActionEffect {
     ActionEffect::CommandQueued {
-        action_id: action.id.clone(),
-        argv: action.argv.clone(),
+        command: CommandRequest {
+            action_id: action.id.clone(),
+            argv: action.argv.clone(),
+            cwd: action.cwd.clone(),
+            env: action.env.clone(),
+            timeout_ms: action.timeout_ms,
+        },
     }
 }
 
@@ -253,8 +266,13 @@ mod tests {
         assert_eq!(
             dispatcher.dispatch(&config, &mut menu, "run-date").unwrap(),
             ActionEffect::CommandQueued {
-                action_id: "run-date".to_string(),
-                argv: vec!["date".to_string()],
+                command: CommandRequest {
+                    action_id: "run-date".to_string(),
+                    argv: vec!["date".to_string()],
+                    cwd: None,
+                    env: HashMap::new(),
+                    timeout_ms: None,
+                },
             }
         );
     }

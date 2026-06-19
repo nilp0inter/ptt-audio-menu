@@ -62,7 +62,7 @@ Menu state now emits action IDs, but the runtime still only prints diagnostics. 
 
 ## Leg 6: Command Runner Foundation
 
-Status: pending
+Status: complete
 
 Action dispatch now recognizes command actions but does not execute them. The next step is to add the first real action backend while keeping audio feedback and reload semantics for later:
 
@@ -72,3 +72,15 @@ Action dispatch now recognizes command actions but does not execute them. The ne
 - Start the process in its own process group on Unix so later cancellation can target the group.
 - Wire `cancel_running_action` to terminate the running command process group where supported.
 - Add focused tests for serial command execution, timeout behavior, and cancellation.
+
+## Leg 7: TTS Cache Foundation
+
+Status: pending
+
+Commands now execute through a serial backend, but feedback is still diagnostic stdout. The next step is to add the cache boundary needed before real audio playback:
+
+- Add a `tts` module that computes stable cache keys from prompt text, voice model/config paths, Piper settings placeholder data, output format, and app version.
+- Resolve the TTS cache directory from config or `$XDG_CACHE_HOME/ptt-audio-menu/tts`.
+- Add a cache lookup/write interface that can store WAV bytes without invoking Piper yet.
+- Update startup validation/runtime wiring only enough to construct the cache.
+- Add focused tests that identical full inputs reuse the same cache path and text/model/settings changes produce different cache paths.

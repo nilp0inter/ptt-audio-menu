@@ -67,3 +67,15 @@
 - Marked Leg 5 complete and added Leg 6 for the command runner foundation.
 - Created commit `de72b0a` (`Add action dispatch foundation`).
 - `git push` succeeded, updating `main` on GitHub.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 6: command runner foundation.
+- Added `src/commands.rs` with a cloneable async command runner that executes argv-list commands without shell expansion, serializes concurrent command runs, supports cwd/env/timeout, and starts Unix children in their own process group.
+- Added process-group termination for running commands and wired `cancel_running_action` to request cancellation through the runner.
+- Expanded command dispatch effects to carry cwd/env/timeout data from validated command actions.
+- Wired command actions into the diagnostic runtime via background tasks so the RFCOMM read loop remains responsive while commands run.
+- Added command runner unit tests for serial execution, timeout behavior, process-group cancellation, and cwd/env handling.
+- Added the required Tokio process/sync features and the `libc` dependency for Unix process-group signaling.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (39 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 6 complete and added Leg 7 for the TTS cache foundation.

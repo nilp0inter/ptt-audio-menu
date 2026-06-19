@@ -4,14 +4,16 @@ use std::{path::PathBuf, time::Duration, time::Instant};
 use tokio::io::AsyncReadExt;
 
 mod actions;
+mod commands;
 mod config;
 mod input;
 mod menu;
 mod parser;
 mod transport;
 
-use actions::ActionDispatcher;
-use config::{load_config, resolve_config_path};
+use actions::{ActionDispatcher, ActionEffect};
+use commands::CommandRunner;
+use config::{load_config, resolve_config_path, InternalCommand};
 use input::InputNormalizer;
 use menu::{MenuOutcome, MenuState};
 use parser::{Event, Parser};
@@ -44,6 +46,7 @@ async fn main() -> Result<()> {
     let mut input = InputNormalizer::new(active_ptt_hold_threshold);
     let mut menu = MenuState::new(&config)?;
     let actions = ActionDispatcher::new(&config)?;
+    let command_runner = CommandRunner::new();
     let mut buf = [0u8; 1024];
 
     loop {
@@ -77,10 +80,39 @@ async fn main() -> Result<()> {
                             menu.phase(),
                             menu.active_tool(&config).id
                         );
+                        handle_action_effect(&command_runner, effect).await?;
                     }
                 }
             }
         }
+    }
+
+    Ok(())
+}
+
+async fn handle_action_effect(runner: &CommandRunner, effect: ActionEffect) -> Result<()> {
+    match effect {
+        ActionEffect::CommandQueued { command } => {
+            let runner = runner.clone();
+            tokio::spawn(async move {
+                let action_id = command.action_id.clone();
+                match runner.run(command).await {
+                    Ok(execution) => println!(
+                        "command action={} outcome={:?}",
+                        execution.action_id, execution.outcome
+                    ),
+                    Err(err) => println!("command action {action_id} failed: {err:#}"),
+                }
+            });
+        }
+        ActionEffect::DeferredInternal {
+            command: InternalCommand::CancelRunningAction,
+            ..
+        } => {
+            let cancelled = runner.cancel_running().await?;
+            println!("cancel_running_action cancelled={cancelled}");
+        }
+        _ => {}
     }
 
     Ok(())

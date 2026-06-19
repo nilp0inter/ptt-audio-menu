@@ -10,6 +10,9 @@ active_ptt_hold_ms = 350
 [cache]
 tts_dir = "target/ptt-audio-menu/tts-cache"
 
+[audio]
+device = "B02PTT-FF01"
+
 [[tools]]
 id = "radio"
 label = "Radio"

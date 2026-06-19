@@ -94,6 +94,7 @@ Use `--config <path>`, otherwise load `$XDG_CONFIG_HOME/ptt-audio-menu/config.to
 - IDs are strict lowercase slugs and unique within their namespace.
 - Voice config uses explicit Piper model/config paths.
 - TTS cache defaults to `$XDG_CACHE_HOME/ptt-audio-menu/tts`, overrideable in config.
+- `[audio] device` optionally specifies a bluetooth device MAC address for audio output routing. When set, audio is directed to the matching PipeWire sink via the `PIPEWIRE_NODE` environment variable. If omitted, the system default sink is used.
 - Global defaults include active PTT hold threshold; tools may override it.
 - Tools define active hooks and local control tabs. Global tabs are available from every tool.
 - Items define label text plus primary/alternate actions.
@@ -114,6 +115,7 @@ Use `--config <path>`, otherwise load `$XDG_CONFIG_HOME/ptt-audio-menu/config.to
 - On successful startup, speak the active tool label.
 - Navigation speech uses interrupt-latest semantics.
 - Playback is internal via `kira`.
+- Audio output routing derives a PipeWire sink node name from the configured Bluetooth MAC (`bluez_output.<underscored_mac>.1`) and sets the `PIPEWIRE_NODE` environment variable before initializing the audio backend. When no audio device is configured, the system default sink applies.
 
 ### Action Execution
 - Async actions run one at a time in a serial queue.
@@ -145,6 +147,7 @@ Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `di
 ### Current Constraints
 - Device MAC is hardcoded.
 - RFCOMM channel is not hardcoded.
+- Audio output routing to the Bluetooth sink uses the `PIPEWIRE_NODE` environment variable with a node name derived from the hardcoded MAC; the `[audio] device` config field is present but not yet wired as the primary routing source.
 - No runtime `sdptool` dependency.
 - No shell command action backend (argv-list only).
 - No keyboard/media/uinput backend.

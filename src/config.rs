@@ -20,6 +20,8 @@ pub struct Config {
     #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
+    pub audio: AudioConfig,
+    #[serde(default)]
     pub globals: GlobalDefaults,
     #[serde(default)]
     pub tools: Vec<ToolConfig>,
@@ -40,6 +42,12 @@ pub struct VoiceConfig {
 #[serde(deny_unknown_fields)]
 pub struct CacheConfig {
     pub tts_dir: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioConfig {
+    pub device: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

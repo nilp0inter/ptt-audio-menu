@@ -250,7 +250,7 @@ fn action_outcome(action_id: &String) -> MenuOutcome {
 mod tests {
     use super::*;
     use crate::config::{
-        ActionConfig, ActiveHooks, CacheConfig, GlobalDefaults, InternalActionConfig,
+        ActionConfig, ActiveHooks, AudioConfig, CacheConfig, GlobalDefaults, InternalActionConfig,
         InternalCommand, ItemConfig, VoiceConfig,
     };
     use std::path::PathBuf;
@@ -289,6 +289,7 @@ mod tests {
                 config_path: PathBuf::from("voice.json"),
             },
             cache: CacheConfig::default(),
+            audio: AudioConfig::default(),
             globals: GlobalDefaults::default(),
             tools: vec![ToolConfig {
                 id: "radio".to_string(),

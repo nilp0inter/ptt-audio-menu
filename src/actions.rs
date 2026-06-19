@@ -125,7 +125,7 @@ fn command_queued_effect(action: &CommandActionConfig) -> ActionEffect {
 mod tests {
     use super::*;
     use crate::config::{
-        ActiveHooks, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
+        ActiveHooks, AudioConfig, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
         InternalActionConfig, ItemConfig, TabConfig, ToolConfig, VoiceConfig,
     };
     use crate::input::InputEvent;
@@ -161,6 +161,7 @@ mod tests {
                 config_path: PathBuf::from("voice.json"),
             },
             cache: CacheConfig::default(),
+            audio: AudioConfig::default(),
             globals: GlobalDefaults::default(),
             tools: vec![
                 ToolConfig {

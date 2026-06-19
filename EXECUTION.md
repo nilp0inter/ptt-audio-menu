@@ -275,4 +275,23 @@
 - Verified with `git diff --check`.
 - Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
 - Left Leg 20 pending and locally blocked until a larger Nix store is available.
+- New session: user reported audio output going through laptop speakers instead of the Bluetooth PTT speaker (B02PTT-FF01).
+- Investigated audio routing: Kira uses cpal with `AudioManagerSettings::default()`, which resolves to the system default output device. The RFCOMM connection is data-only (serial buttons), not an audio path.
+- First approach: cpal device selection via `CpalBackendSettings`. Added `cpal` as direct dependency, modified `AudioPlayer::new()` to enumerate output devices and match by name. User requested setting be in config, not hardcoded. Added `[audio] device` config field and `AudioConfig` struct.
+- cpal device name matching failed because cpal returns PipeWire `node.name` (e.g., `bluez_output.00_02_5B_55_FF_01.1`), not `node.description` (`B02PTT-FF01`). Added normalization (strip non-alphanumeric) and MAC-based fallback search pattern.
+- Normalization/matching still didn't work because `cpal::default_host().output_devices()` returns empty on this PipeWire system — Bluetooth A2DP sinks are PipeWire-native and invisible to cpal's ALSA backend.
+- Second approach: `pw-dump` subprocess JSON parsing with `serde_json` to discover PipeWire sinks. User rejected external tool calls.
+- Final approach: derive PipeWire node name directly from the MAC address: `bluez_output.<underscored_mac>.1`. Set `PIPEWIRE_NODE` env var before Kira initializes cpal. PipeWire's session manager reads this and routes all streams from the process to the target sink. Zero external tools, zero new crate dependencies.
+- Removed `cpal` and `serde_json` from direct dependencies (no longer needed).
+- Updated `src/audio.rs`: replaced cpal device enumeration with MAC-to-node-name derivation and `PIPEWIRE_NODE` env var setting.
+- Updated `src/main.rs`: `AudioPlayer::new()` now passes `Some(DEVICE_ADDR)`; the `[audio] device` config field exists for future configurability but is not yet wired.
+- Updated `src/config.rs`: added `AudioConfig { device: Option<String> }` struct and `audio: AudioConfig` field with `#[serde(default)]`.
+- Updated `examples/config.validation.toml`: added `[audio] device = "B02PTT-FF01"` example.
+- Updated test fixtures in `src/actions.rs`, `src/menu.rs`, `src/tts.rs` with `audio: AudioConfig::default()` and appropriate imports.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (46 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Updated DESIGN.md with audio routing documentation, PipeWire approach, and constraint notes.
+- Added Leg 21 to PLAN.md for audio device routing.
+- Updated EXECUTION.md with this session log.
 - Latest session: read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md`; re-audited pending Leg 20; confirmed `/nix/store` remains a 3.9 GiB overlay with 2.6 GiB available; skipped the full package plus VM closure because this store remains below the known failing headroom; verified `nix flake check --no-build`, `git diff --check`, and `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`; left Leg 20 pending and locally blocked until a larger Nix store is available.

@@ -362,7 +362,7 @@ fn wav_pcm16_from_i16(samples: &[i16], sample_rate: u32, channels: u16) -> Vec<u
 mod tests {
     use super::*;
     use crate::config::{
-        ActiveHooks, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
+        ActiveHooks, AudioConfig, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
         InternalActionConfig, InternalCommand, ItemConfig, TabConfig, ToolConfig,
     };
     use std::collections::HashMap;
@@ -380,6 +380,7 @@ mod tests {
                 config_path: voice_config_path,
             },
             cache: CacheConfig { tts_dir: cache_dir },
+            audio: AudioConfig::default(),
             globals: GlobalDefaults::default(),
             tools: vec![],
             global_tabs: vec![],
@@ -477,6 +478,7 @@ mod tests {
                 config_path: PathBuf::from("/voices/en.json"),
             },
             cache: CacheConfig::default(),
+            audio: AudioConfig::default(),
             globals: GlobalDefaults::default(),
             tools: vec![ToolConfig {
                 id: "radio".to_string(),

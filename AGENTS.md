@@ -56,11 +56,11 @@ nix develop --command cargo check
 
 - `src/main.rs`: application entry point, stdout tracing initialization, reloadable config/cache/prompt-catalog runtime state, TTS prerendering, audio playback wiring, hardcoded target device address, RFCOMM read loop, command-completion feedback handling, parser/menu/action event logging.
 - `examples/config.validation.toml`: representative validation-only config fixture used by the real-package config flake check.
-- `src/audio.rs`: Kira-backed interrupt-latest WAV prompt playback and stop-current handling.
+- `src/audio.rs`: Kira-backed interrupt-latest WAV prompt playback and stop-current handling. On startup, derives a PipeWire sink node name from the hardcoded Bluetooth MAC (`bluez_output.<underscored_mac>.1`), sets the `PIPEWIRE_NODE` environment variable before Kira initializes its cpal stream, and falls back to the system default sink when no device is configured. cpal device enumeration cannot see Bluetooth A2DP sinks because they are PipeWire-native devices invisible to cpal's ALSA backend.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance, and connection lifecycle tracing.
 - `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.
 - `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, PTT threshold handling, and input semantics unit tests.
-- `src/config.rs`: CLI config path resolution helpers, serde-backed TOML schema, validation, and config unit tests.
+- `src/config.rs`: CLI config path resolution helpers, serde-backed TOML schema (including `AudioConfig` with optional `device` field for future audio sink configurability), validation, and config unit tests.
 - `src/menu.rs`: menu phase/focus state, active/global control tab resolution, input-to-action outcome mapping, and menu state unit tests.
 - `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.
 - `src/commands.rs`: async argv-list command runner, serial execution guard, optional timeout handling, Unix process-group cancellation, and command runner unit tests.

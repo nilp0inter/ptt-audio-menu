@@ -235,3 +235,19 @@ Follow-up audit: `/nix/store` remains a 3.9 GiB overlay with 2.6 GiB available. 
 Current audit: `/nix/store` is still a 3.9 GiB overlay with 2.6 GiB available. The local blocker is unchanged, so the full package plus VM closure remains deferred to a larger store. Re-verified `nix flake check --no-build`, `git diff --check`, and `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
 
 Latest follow-up audit: `/nix/store` remains a 3.9 GiB overlay with 2.6 GiB available. The full package plus VM closure is still locally blocked by store capacity; continue using the lightweight structural checks on this machine until the store is expanded. Re-verified `nix flake check --no-build`, `git diff --check`, and `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+
+## Leg 21: Audio Output Routing to Bluetooth Sink
+
+Status: complete
+
+Kira uses cpal for audio output, which on Linux relies on ALSA. Bluetooth A2DP sinks are PipeWire-native devices invisible to ALSA device enumeration, so cpal device selection cannot route audio to the RSM speaker. This leg implements PipeWire-level routing:
+
+- Add `PIPEWIRE_NODE` environment variable configuration before audio backend initialization.
+- Derive the PipeWire sink node name from the Bluetooth MAC address (`bluez_output.<underscored_mac>.1`).
+- The node name derivation uses the existing hardcoded `DEVICE_ADDR` constant; the `[audio] device` config field was introduced for future configurability but is not yet wired as the primary routing source.
+- Audio plays through the system default sink when no device is configured.
+
+Implementation notes:
+- Attempted cpal device enumeration first, but `cpal::default_host().output_devices()` returned an empty iterator on this PipeWire system because Bluetooth sinks are not exposed through ALSA.
+- Attempted `pw-dump` subprocess discovery, but this violates the constraint against external tool calls at runtime.
+- The final approach uses zero external tools and zero new crate dependencies: derive the node name from the MAC address and set the env var before Kira initializes its cpal stream.

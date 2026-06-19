@@ -10,7 +10,7 @@ bluer = { version = "0.17.4", features = ["bluetoothd", "rfcomm"] }
 clap = { version = "4", features = ["derive"] }
 directories = "5"
 futures = "0.3"
-kira = { version = "0.12.1", default-features = false, features = ["cpal", "wav"] }
+kira = { version = "0.12.1", default-features = false, features = ["cpal", "wav", "pcm"] }
 libc = "0.2"
 ort = { version = "=2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "tracing", "pkg-config", "api-24"] }
 piper-rs = { version = "0.2", default-features = false }

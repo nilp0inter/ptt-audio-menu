@@ -67,7 +67,7 @@ async fn main() -> Result<()> {
     info!(prompt_count = runtime.prompt_count, "prepared TTS prompts");
     info!(device_addr = DEVICE_ADDR, "connecting device");
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
-    let mut audio = AudioPlayer::new()?;
+    let mut audio = AudioPlayer::new(runtime.config.audio.device.as_deref(), Some(DEVICE_ADDR))?;
     let mut parser = Parser::default();
     let mut input = InputNormalizer::new(active_ptt_hold_threshold);
     let mut menu = MenuState::new(&runtime.config)?;

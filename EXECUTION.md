@@ -229,3 +229,12 @@
 - Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
 - Did not rerun the real-package checks, Rust checks, or NixOS service VM check because the full run showed that roughly 3.2 GiB free was insufficient for the real package closure on this machine.
 - Marked Leg 18 complete with the partial verification result and added Leg 19 to retry the full integration check when `/nix/store` has substantially more headroom.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 19: store-headroom full integration retry.
+- Found the worktree clean except for the pre-existing untracked `nixos.qcow2`.
+- Found `/nix/store` is a 3.9 GiB overlay with 2.6 GiB available, so this environment cannot provide substantially more than the 3.2 GiB that already failed during Leg 18.
+- Did not rerun full `nix flake check`, real-package checks, Rust checks, or the NixOS service VM check because the limiting factor is the total store capacity rather than reclaimable space.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Verified with `git diff --check`.
+- Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+- Marked Leg 19 complete with the capacity result and added Leg 20 for a full integration run on an expanded Nix store or larger machine.

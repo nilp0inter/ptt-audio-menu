@@ -208,10 +208,22 @@ Result: attempted `nix flake check` after freeing `/nix/store` to roughly 3.2 Gi
 
 ## Leg 19: Store-Headroom Full Integration Retry
 
-Status: pending
+Status: complete
 
 The full integration surface is structurally evaluated, but this machine still needs enough `/nix/store` capacity to realize the real Rust package plus VM closure in one run:
 
 - Start by checking `df -h /nix/store`; aim for substantially more than 3.2 GiB free before retrying `nix flake check`.
 - Re-run `nix flake check` and the explicit real-package checks when store capacity permits.
 - If the full run still fails for reasons other than store pressure, limit edits to check reliability or Nix integration fixes discovered by the failing check.
+
+Result: `/nix/store` is currently a 3.9 GiB overlay with only 2.6 GiB available, so this environment cannot provide substantially more than the 3.2 GiB that already failed in Leg 18. Verified the flake evaluation surface with `nix flake check --no-build`, whitespace with `git diff --check`, and the lightweight module checks with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+
+## Leg 20: Expanded-Store Full Integration Run
+
+Status: pending
+
+The implementation and module integration are structurally covered, but the full package plus VM check needs a larger Nix store than this current 3.9 GiB overlay:
+
+- Run the full `nix flake check` on a machine or mount with enough `/nix/store` capacity for the real Rust/TTS/ONNX package closure plus the NixOS VM closure.
+- Include the explicit real-package checks and `nix build .#checks.x86_64-linux.nixos-service-vm` if they are not already covered by the full check result.
+- If capacity is available and a check fails for a real build, module, or runtime-smoke reason, keep edits limited to check reliability or Nix integration fixes.

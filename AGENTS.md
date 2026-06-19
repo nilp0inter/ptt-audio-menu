@@ -34,6 +34,7 @@ nix build .#checks.x86_64-linux.nixos-service-vm
 - `checks.${system}.nixos-service-vm` boots a NixOS VM with a dummy long-running `ptt-audio-menu` executable and verifies systemd arguments/environment. The minimal VM must define the module's default `audio` and `bluetooth` supplementary groups.
 - The Nix store overlay on this machine can fill while building VM checks. Check `df -h /nix/store`; a targeted or interrupted `nix-store --gc` may be needed before rerunning.
 - During the 2026-06-19 Leg 18 recheck, `nix flake check` still filled `/nix/store` with about 3.2 GiB free while realizing the real package dependency chain around Rust/eSpeak/mbrola. For a full package plus VM run, free substantially more space first; `nix flake check --no-build` and the lightweight `nixos-module`/`home-manager-module` checks fit in less space.
+- During the Leg 19 retry, `/nix/store` was a 3.9 GiB overlay with 2.6 GiB available. This environment cannot provide enough headroom for the full package plus VM closure; run full `nix flake check` on a larger store instead of repeatedly retrying here.
 - Run Rust verification inside the shell:
 
 ```sh

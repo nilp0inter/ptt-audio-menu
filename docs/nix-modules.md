@@ -65,3 +65,9 @@ requiring Bluetooth hardware.
 
 Hardware connection and audio playback remain host/runtime checks because they
 depend on the paired RSM, BlueZ, and the host audio stack.
+
+On small CI or sandbox stores, the full check can fail before reaching runtime
+coverage because the real package closure includes Rust, audio/TTS, eSpeak, and
+ONNX Runtime dependencies plus the VM closure. In that case,
+`nix flake check --no-build` and the lightweight module checks still cover
+evaluation, but a full `nix flake check` should be rerun on a larger Nix store.

@@ -27,3 +27,14 @@
 - Marked Leg 2 complete and added Leg 3 for TOML config loading and validation.
 - Created local commit `Add hardware input normalization`.
 - `git push` failed because the configured SSH identity was missing: `/home/nil/.ssh/assistant-cage.pub`.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 3: configuration loading and validation.
+- Added CLI parsing with `--config` and config path resolution for explicit path, `$XDG_CONFIG_HOME/ptt-audio-menu/config.toml`, and `~/.config/ptt-audio-menu/config.toml`.
+- Added `src/config.rs` with serde-backed TOML structs for voice, cache, globals, tools, tabs, items, internal actions, and command actions.
+- Added validation for strict lowercase slug IDs, duplicate IDs within namespaces, required/known `default_tool`, known action references, `switch_tool` targets, existing Piper model/config paths, and argv-list command actions.
+- Kept runtime behavior diagnostic, but now validates config before Bluetooth connection and uses the global active PTT hold threshold for input normalization.
+- Scoped `dead_code` allowance to the config module because most schema fields are intentionally introduced before menu/audio/action consumers exist.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (22 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 3 complete and added Leg 4 for menu state foundation.

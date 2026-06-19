@@ -26,7 +26,7 @@ Add the layer between raw parser events and menu state:
 
 ## Leg 3: Configuration Loading and Validation
 
-Status: pending
+Status: complete
 
 The implementation now has transport, parsing, and hardware input normalization, but runtime behavior is still hardcoded and diagnostic. The next step is to introduce the TOML configuration boundary before building menu state:
 
@@ -35,3 +35,15 @@ The implementation now has transport, parsing, and hardware input normalization,
 - Validate strict lowercase slug IDs, uniqueness within namespaces, required `default_tool`, known tool/action references, Piper model/config paths, and argv-list command actions.
 - Keep the runtime loop diagnostic for now, but load and validate config at startup.
 - Add focused config validation tests from `DESIGN.md`.
+
+## Leg 4: Menu State Foundation
+
+Status: pending
+
+The program now validates configuration before connecting Bluetooth and has normalized hardware input events, but it still only prints diagnostics. The next step is to add the menu state layer without executing actions or producing audio yet:
+
+- Build a `menu` module that initializes from validated config and tracks the active tool, active/control phase, selected tab, and selected item.
+- Map `InputEvent` values to menu outcomes: enter control, cycle tabs, scroll items, select primary action, and SOS alternate actions that stay in control mode.
+- Resolve global tabs plus the active tool's local tabs into the control tab list.
+- Return action IDs as outcomes instead of executing them.
+- Add unit tests for active-to-control, tab cycling, item scrolling, PTT selection exiting control, control SOS alternate action staying in control, and no idle timeout transition.

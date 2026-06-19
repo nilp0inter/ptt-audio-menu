@@ -1,23 +1,43 @@
 use anyhow::{Context, Result};
-use std::time::Instant;
+use clap::Parser as ClapParser;
+use std::{path::PathBuf, time::Duration, time::Instant};
 use tokio::io::AsyncReadExt;
 
+mod config;
 mod input;
 mod parser;
 mod transport;
 
+use config::{load_config, resolve_config_path};
 use input::InputNormalizer;
 use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
 
 const DEVICE_ADDR: &str = "00:02:5B:55:FF:01";
 
+#[derive(Debug, ClapParser)]
+struct Cli {
+    #[arg(long)]
+    config: Option<PathBuf>,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let config_path = resolve_config_path(cli.config)?;
+    let config = load_config(&config_path)?;
+    let active_ptt_hold_threshold = Duration::from_millis(config.globals.active_ptt_hold_ms);
+
+    println!(
+        "config path={} default_tool={} active_ptt_hold_ms={}",
+        config_path.display(),
+        config.default_tool,
+        config.globals.active_ptt_hold_ms
+    );
     println!("device addr={DEVICE_ADDR}");
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut parser = Parser::default();
-    let mut input = InputNormalizer::default();
+    let mut input = InputNormalizer::new(active_ptt_hold_threshold);
     let mut buf = [0u8; 1024];
 
     loop {

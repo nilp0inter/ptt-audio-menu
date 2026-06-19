@@ -1,0 +1,141 @@
+default_tool = "radio"
+
+[voice]
+model_path = "examples/fixtures/voice.onnx"
+config_path = "examples/fixtures/voice.json"
+
+[globals]
+active_ptt_hold_ms = 350
+
+[cache]
+tts_dir = "target/ptt-audio-menu/tts-cache"
+
+[[tools]]
+id = "radio"
+label = "Radio"
+
+[tools.active_hooks]
+ptt = "talk"
+sos_short = "read-status"
+sos_long = "cancel-command"
+
+[[tools.tabs]]
+id = "local"
+label = "Radio controls"
+
+[[tools.tabs.items]]
+id = "mute"
+label = "Mute"
+primary_action = "mute-radio"
+alternate_action = "stop-audio"
+
+[[tools.tabs.items]]
+id = "status"
+label = "Status"
+primary_action = "read-status"
+
+[[tools]]
+id = "music"
+label = "Music"
+
+[tools.active_hooks]
+ptt = "play-pause"
+sos_short = "read-status"
+
+[[tools.tabs]]
+id = "local"
+label = "Music controls"
+
+[[tools.tabs.items]]
+id = "play-pause"
+label = "Play pause"
+primary_action = "play-pause"
+alternate_action = "stop-audio"
+
+[[global_tabs]]
+id = "tools"
+label = "Tools"
+
+[[global_tabs.items]]
+id = "radio"
+label = "Radio"
+primary_action = "switch-radio"
+
+[[global_tabs.items]]
+id = "music"
+label = "Music"
+primary_action = "switch-music"
+
+[[global_tabs]]
+id = "system"
+label = "System"
+
+[[global_tabs.items]]
+id = "reload"
+label = "Reload config"
+primary_action = "reload-config"
+
+[[global_tabs.items]]
+id = "exit"
+label = "Exit controls"
+primary_action = "exit-control"
+
+[[actions]]
+id = "talk"
+type = "internal"
+command = "noop"
+
+[[actions]]
+id = "mute-radio"
+type = "internal"
+command = "speak"
+text = "Radio muted"
+
+[[actions]]
+id = "read-status"
+type = "internal"
+command = "speak"
+text = "System ready"
+
+[[actions]]
+id = "stop-audio"
+type = "internal"
+command = "stop_audio"
+
+[[actions]]
+id = "cancel-command"
+type = "internal"
+command = "cancel_running_action"
+
+[[actions]]
+id = "switch-radio"
+type = "internal"
+command = "switch_tool"
+tool = "radio"
+
+[[actions]]
+id = "switch-music"
+type = "internal"
+command = "switch_tool"
+tool = "music"
+
+[[actions]]
+id = "reload-config"
+type = "internal"
+command = "reload_config"
+text = "Reload failed"
+
+[[actions]]
+id = "exit-control"
+type = "internal"
+command = "exit_control"
+
+[[actions]]
+id = "play-pause"
+type = "command"
+argv = ["date"]
+
+[actions.feedback]
+start = "Running command"
+success = "Command completed"
+failure = "Command failed"

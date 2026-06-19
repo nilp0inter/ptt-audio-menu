@@ -166,10 +166,20 @@ The module can now be boot-tested with a dummy executable, but the VM path still
 
 ## Leg 15: Configuration Fixture Integration Checks
 
-Status: pending
+Status: complete
 
 The flake now checks the real packaged binary through the NixOS module with `--help`, but the package check still does not exercise config-file loading outside unit tests. The next integration step should remain hardware-free and focus on the TOML boundary:
 
 - Add a representative example config fixture with dummy Piper model/config paths suitable for validation tests.
 - Add a derivation or NixOS check that runs the real binary far enough to validate CLI/config behavior without attempting Bluetooth, if a narrow CLI path is introduced.
 - If that requires a new CLI mode, keep it explicitly diagnostic and avoid changing the runtime menu behavior.
+
+## Leg 16: Config Check Through Module Wiring
+
+Status: pending
+
+The real package now has a hardware-free config validation path, but the NixOS module still only invokes the real package through `--help`. The next integration step should keep focusing on module behavior:
+
+- Add a NixOS module check that wires the example config path through `services.ptt-audio-menu.configPath` and appends `--check-config` through `extraArgs`.
+- Run the module-generated `ExecStart` with the real package to prove module argument ordering works for a real config load.
+- Keep this as a derivation check, not a VM, because no long-running service behavior or hardware access is needed.

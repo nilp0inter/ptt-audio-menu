@@ -158,6 +158,17 @@
               $execStart > help
               grep -F "Usage:" help
               grep -F -- "--config" help
+              grep -F -- "--check-config" help
+              touch "$out"
+            '';
+          real-package-config-fixture = pkgs.runCommand "ptt-audio-menu-real-package-config-fixture-check"
+            {
+              src = self;
+              nativeBuildInputs = [ self.packages.${system}.default ];
+            }
+            ''
+              (cd "$src" && ptt-audio-menu --config examples/config.validation.toml --check-config) > log
+              grep -F "config validation passed" log
               touch "$out"
             '';
           nixos-service-vm = nixosServiceTest;

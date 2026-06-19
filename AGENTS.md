@@ -24,6 +24,7 @@ nix build .#checks.x86_64-linux.nixos-service-vm
 
 - `nix flake check` may warn that `homeManagerModules` is an unknown non-core flake output; this is expected for Home Manager consumers.
 - `checks.${system}.nixos-real-package-help` evaluates the NixOS module with the real package, verifies the package is installed, and invokes the module-generated `ExecStart` with `--help` so no Bluetooth hardware is required.
+- `checks.${system}.real-package-config-fixture` runs the real packaged binary with `--config examples/config.validation.toml --check-config`, validating TOML loading and references without TTS rendering or Bluetooth hardware.
 - `checks.${system}.nixos-service-vm` boots a NixOS VM with a dummy long-running `ptt-audio-menu` executable and verifies systemd arguments/environment. The minimal VM must define the module's default `audio` and `bluetooth` supplementary groups.
 - The Nix store overlay on this machine can fill while building VM checks. Check `df -h /nix/store`; a targeted or interrupted `nix-store --gc` may be needed before rerunning.
 - Run Rust verification inside the shell:
@@ -41,6 +42,7 @@ nix develop --command cargo check
 ## Current Code Layout
 
 - `src/main.rs`: application entry point, stdout tracing initialization, reloadable config/cache/prompt-catalog runtime state, TTS prerendering, audio playback wiring, hardcoded target device address, RFCOMM read loop, command-completion feedback handling, parser/menu/action event logging.
+- `examples/config.validation.toml`: representative validation-only config fixture used by the real-package config flake check.
 - `src/audio.rs`: Kira-backed interrupt-latest WAV prompt playback and stop-current handling.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance, and connection lifecycle tracing.
 - `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.

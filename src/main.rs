@@ -32,6 +32,10 @@ const DEVICE_ADDR: &str = "00:02:5B:55:FF:01";
 struct Cli {
     #[arg(long)]
     config: Option<PathBuf>,
+
+    /// Validate the resolved TOML config and exit before TTS or Bluetooth startup.
+    #[arg(long)]
+    check_config: bool,
 }
 
 #[tokio::main]
@@ -39,6 +43,16 @@ async fn main() -> Result<()> {
     init_logging();
     let cli = Cli::parse();
     let config_path = resolve_config_path(cli.config)?;
+    if cli.check_config {
+        let config = load_config(&config_path)?;
+        info!(
+            config_path = %config_path.display(),
+            default_tool = %config.default_tool,
+            "config validation passed"
+        );
+        return Ok(());
+    }
+
     let mut runtime = RuntimeState::load(config_path.clone())?;
     let active_ptt_hold_threshold =
         Duration::from_millis(runtime.config.globals.active_ptt_hold_ms);

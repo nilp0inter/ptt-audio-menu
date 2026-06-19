@@ -183,3 +183,20 @@
 - Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
 - Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module .#checks.x86_64-linux.nixos-real-package-help`.
 - Did not rerun the NixOS service VM check because the package/help check left only about 445 MiB free in `/nix/store`.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 15: configuration fixture integration checks.
+- Added a narrow `--check-config` CLI mode that resolves and validates the TOML config, logs success, and exits before TTS rendering or Bluetooth connection.
+- Added `examples/config.validation.toml` plus dummy `examples/fixtures/voice.onnx` and `examples/fixtures/voice.json` files so validation can exercise representative tools, tabs, internal actions, command actions, feedback labels, and Piper path checks without needing a real voice model.
+- Extended the real-package help check to assert `--check-config` appears in Clap help.
+- Added a `real-package-config-fixture` flake check that runs the packaged binary against the example config with `--check-config`.
+- Updated Nix module documentation to describe the config fixture check and the fact that the real-package checks exit before TTS rendering and Bluetooth setup.
+- Marked Leg 15 complete and added Leg 16 for checking config validation through NixOS module-generated arguments.
+- Initial `real-package-config-fixture` verification failed because the check redirected output to `log` while its current directory was the read-only Nix source tree; changed the command to run from the source tree only inside a subshell and write the captured log in the writable build directory.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `git diff --check`.
+- Verified with `nix develop --command cargo test` (46 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Verified with `nix build .#checks.x86_64-linux.real-package-config-fixture`.
+- Verified with `nix build .#checks.x86_64-linux.nixos-real-package-help`.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Did not rerun the NixOS service VM check because `/nix/store` had only about 383 MiB free after the package/config checks.

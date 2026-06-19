@@ -122,7 +122,7 @@ The program now prerenders configured prompts and uses cached audio for startup,
 
 ## Leg 11: Tracing Logging Foundation
 
-Status: pending
+Status: complete
 
 Most core runtime behavior is now wired, but diagnostics still use ad hoc `println!` output. The next step is to align runtime observability with `DESIGN.md` while keeping raw Bluetooth/event logs available:
 
@@ -131,3 +131,15 @@ Most core runtime behavior is now wired, but diagnostics still use ad hoc `print
 - Replace runtime `println!` diagnostics in `main.rs` with structured `tracing` calls.
 - Keep raw RFCOMM chunks, parser events, input events, menu outcomes, action effects, command completions, and reload failures visible at debug/info levels as appropriate.
 - Preserve current behavior and tests; add minimal coverage only if helper code is introduced.
+
+## Leg 12: NixOS and Home Manager Module Foundation
+
+Status: pending
+
+The core runtime now matches the design closely enough that new feature work should pause. The next step is to improve system integration through Nix modules:
+
+- Inspect the current flake outputs and package definition.
+- Add a NixOS module that can install the package and define a systemd service with configurable package, config path, user/group, Bluetooth/audio-related service settings, and environment.
+- Add a Home Manager module for user-level installation and optional user service wiring where practical.
+- Add flake checks that evaluate the package and module examples without requiring Bluetooth hardware.
+- Document module usage and any intentionally deferred hardware/e2e checks.

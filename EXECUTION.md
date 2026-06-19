@@ -129,3 +129,14 @@
 - Verified with `nix develop --command cargo test` (46 unit tests passed).
 - Verified with `nix develop --command cargo check`.
 - Marked Leg 10 complete and added Leg 11 for tracing-backed stdout logging.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 11: tracing logging foundation.
+- Added `tracing` and `tracing-subscriber` dependencies with env-filter support.
+- Initialized stdout tracing at startup, defaulting to `info` and allowing debug raw diagnostics through `RUST_LOG`.
+- Replaced ad hoc runtime `println!` diagnostics in `src/main.rs` with structured `tracing` events.
+- Replaced BlueZ/RFCOMM connection `println!` diagnostics in `src/transport.rs` with structured `tracing` events.
+- Kept raw RFCOMM chunks, parser events, normalized input events, menu outcomes, and action effects at debug level; kept startup, connection, command completion, cancellation, and reload lifecycle logs at info/warn/error levels.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (46 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 11 complete and added Leg 12 for NixOS/Home Manager module foundation.

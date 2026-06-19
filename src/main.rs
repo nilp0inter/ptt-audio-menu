@@ -3,6 +3,8 @@ use clap::Parser as ClapParser;
 use std::collections::HashMap;
 use std::{path::PathBuf, time::Duration, time::Instant};
 use tokio::io::AsyncReadExt;
+use tracing::{debug, error, info, warn};
+use tracing_subscriber::{fmt, EnvFilter};
 
 mod actions;
 mod audio;
@@ -34,21 +36,22 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    init_logging();
     let cli = Cli::parse();
     let config_path = resolve_config_path(cli.config)?;
     let mut runtime = RuntimeState::load(config_path.clone())?;
     let active_ptt_hold_threshold =
         Duration::from_millis(runtime.config.globals.active_ptt_hold_ms);
 
-    println!(
-        "config path={} default_tool={} active_ptt_hold_ms={}",
-        config_path.display(),
-        runtime.config.default_tool,
-        runtime.config.globals.active_ptt_hold_ms
+    info!(
+        config_path = %config_path.display(),
+        default_tool = %runtime.config.default_tool,
+        active_ptt_hold_ms = runtime.config.globals.active_ptt_hold_ms,
+        "loaded config"
     );
-    println!("tts cache dir={}", runtime.tts_cache_dir.display());
-    println!("tts prompt count={}", runtime.prompt_count);
-    println!("device addr={DEVICE_ADDR}");
+    info!(tts_cache_dir = %runtime.tts_cache_dir.display(), "resolved TTS cache");
+    info!(prompt_count = runtime.prompt_count, "prepared TTS prompts");
+    info!(device_addr = DEVICE_ADDR, "connecting device");
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut audio = AudioPlayer::new()?;
     let mut parser = Parser::default();
@@ -69,7 +72,7 @@ async fn main() -> Result<()> {
             read_result = stream.read(&mut buf) => {
                 let n = read_result.context("read RFCOMM stream")?;
                 if n == 0 {
-                    println!("stream eof");
+                    info!("RFCOMM stream ended");
                     break;
                 }
                 process_chunk(
@@ -103,21 +106,22 @@ async fn process_chunk(
     command_tx: &tokio::sync::mpsc::UnboundedSender<CommandCompletion>,
     audio: &mut AudioPlayer,
 ) -> Result<()> {
-    println!(
-        "raw hex={} ascii={:?}",
-        hex(chunk),
-        String::from_utf8_lossy(chunk)
+    debug!(
+        hex = %hex(chunk),
+        ascii = ?String::from_utf8_lossy(chunk),
+        "received RFCOMM chunk"
     );
 
     for event in parser.push(chunk) {
-        print_raw_event(event);
+        log_raw_event(event);
         for input_event in input.push(event, Instant::now()) {
-            println!("input event={input_event:?} mode={:?}", input.mode());
+            debug!(event = ?input_event, mode = ?input.mode(), "normalized input event");
             for menu_outcome in menu.push(&runtime.config, input_event) {
-                println!(
-                    "menu outcome={menu_outcome:?} phase={:?} active_tool={}",
-                    menu.phase(),
-                    menu.active_tool(&runtime.config).id
+                debug!(
+                    outcome = ?menu_outcome,
+                    phase = ?menu.phase(),
+                    active_tool = %menu.active_tool(&runtime.config).id,
+                    "menu outcome"
                 );
                 handle_menu_audio(
                     audio,
@@ -130,10 +134,11 @@ async fn process_chunk(
                     let effect = runtime
                         .actions
                         .dispatch(&runtime.config, menu, &action_id)?;
-                    println!(
-                        "action effect={effect:?} phase={:?} active_tool={}",
-                        menu.phase(),
-                        menu.active_tool(&runtime.config).id
+                    debug!(
+                        effect = ?effect,
+                        phase = ?menu.phase(),
+                        active_tool = %menu.active_tool(&runtime.config).id,
+                        "action effect"
                     );
                     handle_action_effect(
                         command_runner,
@@ -181,7 +186,7 @@ async fn handle_action_effect(
                     })
                     .is_err()
                 {
-                    println!("command completion receiver dropped");
+                    warn!("command completion receiver dropped");
                 }
             });
         }
@@ -190,7 +195,7 @@ async fn handle_action_effect(
             ..
         } => {
             let cancelled = runner.cancel_running().await?;
-            println!("cancel_running_action cancelled={cancelled}");
+            info!(cancelled, "cancel_running_action completed");
         }
         ActionEffect::DeferredInternal {
             command: InternalCommand::Speak,
@@ -221,21 +226,22 @@ async fn handle_action_effect(
                     &runtime.prompt_audio,
                     &menu.active_tool(&runtime.config).label,
                 )?;
-                println!(
-                    "reload_config action={} path={} prompt_count={}",
-                    action_id,
-                    runtime.config_path.display(),
-                    runtime.prompt_count
+                info!(
+                    action_id = %action_id,
+                    config_path = %runtime.config_path.display(),
+                    prompt_count = runtime.prompt_count,
+                    "reloaded config"
                 );
             }
             Err(err) => {
                 if let Some(text) = speak_action_text(&runtime.config, &action_id) {
                     let _ = play_prompt(audio, &runtime.prompt_audio, text);
                 }
-                println!(
-                    "reload_config action={} path={} failed: {err:#}",
-                    action_id,
-                    runtime.config_path.display()
+                error!(
+                    action_id = %action_id,
+                    config_path = %runtime.config_path.display(),
+                    error = ?err,
+                    "reload_config failed"
                 );
                 std::process::exit(1);
             }
@@ -260,9 +266,10 @@ fn handle_command_completion(
 ) -> Result<()> {
     match completion.result {
         Ok(execution) => {
-            println!(
-                "command action={} outcome={:?}",
-                execution.action_id, execution.outcome
+            info!(
+                action_id = %execution.action_id,
+                outcome = ?execution.outcome,
+                "command completed"
             );
             let text = command_outcome_feedback(&completion.feedback, &execution);
             if let Some(text) = text {
@@ -270,7 +277,11 @@ fn handle_command_completion(
             }
         }
         Err(err) => {
-            println!("command action {} failed: {err:#}", completion.action_id);
+            warn!(
+                action_id = %completion.action_id,
+                error = ?err,
+                "command failed"
+            );
             if let Some(text) = completion.feedback.failure.as_deref() {
                 play_prompt(audio, prompt_audio, text)?;
             }
@@ -383,13 +394,21 @@ impl PromptAudioIndex {
     }
 }
 
-fn print_raw_event(event: Event) {
-    println!(
-        "event button={} number={} action={} token={}",
-        event.button.as_str(),
-        event.number,
-        event.action.as_str(),
-        event.token
+fn init_logging() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stdout)
+        .init();
+}
+
+fn log_raw_event(event: Event) {
+    debug!(
+        button = event.button.as_str(),
+        number = event.number,
+        action = event.action.as_str(),
+        token = event.token,
+        "parsed raw event"
     );
 }
 

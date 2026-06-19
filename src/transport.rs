@@ -6,6 +6,7 @@ use bluer::{
 use futures::StreamExt;
 use std::time::Duration;
 use tokio::time::timeout;
+use tracing::info;
 use uuid::Uuid;
 
 const SPP_UUID: Uuid = Uuid::from_u128(0x00001101_0000_1000_8000_00805f9b34fb);
@@ -43,14 +44,14 @@ pub async fn connect_rfcomm_stream(device_addr: &str) -> Result<Stream> {
         .await
         .context("register RFCOMM Serial Port profile")?;
 
-    println!("profile uuid={SPP_UUID}");
-    println!("connecting profile");
+    info!(profile_uuid = %SPP_UUID, "registered RFCOMM profile");
+    info!("connecting RFCOMM profile");
     let mut connect_task = tokio::spawn({
         let device = device.clone();
         async move { device.connect_profile(&SPP_UUID).await }
     });
 
-    println!("waiting for RFCOMM profile connection");
+    info!("waiting for RFCOMM profile connection");
     let request = timeout(PROFILE_REQUEST_TIMEOUT, async {
         tokio::select! {
             request = profile_handle.next() => {
@@ -69,11 +70,11 @@ pub async fn connect_rfcomm_stream(device_addr: &str) -> Result<Stream> {
     .context("timed out waiting for RFCOMM profile NewConnection")?
     .context("wait for RFCOMM profile NewConnection")?;
 
-    println!(
-        "accepted device={} version={:?} features={:?}",
-        request.device(),
-        request.version(),
-        request.features()
+    info!(
+        device = %request.device(),
+        version = ?request.version(),
+        features = ?request.features(),
+        "accepted RFCOMM profile connection"
     );
     let stream = request
         .accept()

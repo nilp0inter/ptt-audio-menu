@@ -146,10 +146,20 @@ The core runtime now matches the design closely enough that new feature work sho
 
 ## Leg 13: NixOS Module Runtime Smoke Checks
 
-Status: pending
+Status: complete
 
 The flake now builds the package and evaluates module examples, but it still does not exercise a NixOS VM runtime path. The next integration step should stay focused on module/service behavior rather than new application features:
 
 - Add a minimal NixOS VM check that enables the service with a dummy executable package and verifies the generated systemd unit can start.
 - Add a Home Manager-compatible evaluation or activation check if a lightweight pattern is available without adding a hard Home Manager flake input.
 - Keep Bluetooth/RSM/audio hardware tests documented as manual or host-specific until there is a reliable test device setup.
+
+## Leg 14: Real Package NixOS CLI Smoke Checks
+
+Status: pending
+
+The module can now be boot-tested with a dummy executable, but the VM path still avoids the real Rust binary because the normal runtime connects Bluetooth hardware. The next integration step should exercise the packaged binary in a hardware-free mode:
+
+- Add a NixOS VM or derivation check that uses the real package with a non-Bluetooth CLI path such as `--help`.
+- Verify the NixOS module can install and invoke the real package without needing RSM hardware.
+- Keep the existing dummy service VM check for long-running systemd service semantics.

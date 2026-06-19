@@ -29,8 +29,14 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           dummyPackage = pkgs.writeShellScriptBin "ptt-audio-menu" ''
-            echo "ptt-audio-menu module check"
+            mkdir -p /run/ptt-audio-menu
+            printf '%s\n' "$@" > /run/ptt-audio-menu/args
+            printf '%s\n' "RUST_LOG=$RUST_LOG" > /run/ptt-audio-menu/env
+            printf '%s\n' "PIPER_ESPEAKNG_DATA_DIRECTORY=$PIPER_ESPEAKNG_DATA_DIRECTORY" >> /run/ptt-audio-menu/env
+            touch /run/ptt-audio-menu/started
+            exec ${pkgs.coreutils}/bin/sleep infinity
           '';
+          dummyConfig = pkgs.writeText "ptt-audio-menu-config.toml" "";
           nixosEval = lib.nixosSystem {
             inherit system;
             modules = [
@@ -43,6 +49,37 @@
                 };
               }
             ];
+          };
+          nixosServiceTest = pkgs.testers.nixosTest {
+            name = "ptt-audio-menu-service";
+            nodes.machine = {
+              imports = [ ./nix/nixos-module.nix ];
+
+              services.ptt-audio-menu = {
+                enable = true;
+                package = dummyPackage;
+                configPath = dummyConfig;
+                logLevel = "ptt_audio_menu=debug,info";
+                extraArgs = [ "--module-smoke" ];
+              };
+
+              users.groups.audio = { };
+              users.groups.bluetooth = { };
+
+              system.stateVersion = "25.11";
+            };
+
+            testScript = ''
+              machine.wait_for_unit("multi-user.target")
+              machine.wait_for_unit("ptt-audio-menu.service")
+              machine.succeed("systemctl is-active --quiet ptt-audio-menu.service")
+              machine.succeed("test -e /run/ptt-audio-menu/started")
+              machine.succeed("grep -Fx -- '--config' /run/ptt-audio-menu/args")
+              machine.succeed("grep -Fx -- '${dummyConfig}' /run/ptt-audio-menu/args")
+              machine.succeed("grep -Fx -- '--module-smoke' /run/ptt-audio-menu/args")
+              machine.succeed("grep -Fx -- 'RUST_LOG=ptt_audio_menu=debug,info' /run/ptt-audio-menu/env")
+              machine.succeed("grep -E '^PIPER_ESPEAKNG_DATA_DIRECTORY=.+espeak-ng-data$' /run/ptt-audio-menu/env")
+            '';
           };
           homeEval = lib.evalModules {
             modules = [
@@ -89,11 +126,14 @@
           home-manager-module = pkgs.runCommand "ptt-audio-menu-home-manager-module-check"
             {
               execStart = homeEval.config.systemd.user.services.ptt-audio-menu.Service.ExecStart;
+              packages = lib.concatMapStringsSep "\n" toString homeEval.config.home.packages;
             }
             ''
               test -n "$execStart"
+              grep -Fx '${dummyPackage}' <<< "$packages"
               touch "$out"
             '';
+          nixos-service-vm = nixosServiceTest;
         });
 
       nixosModules.default = ./nix/nixos-module.nix;

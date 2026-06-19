@@ -18,9 +18,12 @@
 ```sh
 nix build .#packages.x86_64-linux.default
 nix flake check
+nix build .#checks.x86_64-linux.nixos-service-vm
 ```
 
 - `nix flake check` may warn that `homeManagerModules` is an unknown non-core flake output; this is expected for Home Manager consumers.
+- `checks.${system}.nixos-service-vm` boots a NixOS VM with a dummy long-running `ptt-audio-menu` executable and verifies systemd arguments/environment. The minimal VM must define the module's default `audio` and `bluetooth` supplementary groups.
+- The Nix store overlay on this machine can fill while building VM checks. Check `df -h /nix/store`; a targeted or interrupted `nix-store --gc` may be needed before rerunning.
 - Run Rust verification inside the shell:
 
 ```sh

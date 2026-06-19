@@ -157,3 +157,17 @@
 - Verified with `nix develop --command cargo test` (46 unit tests passed).
 - Verified with `nix develop --command cargo check`.
 - Marked Leg 12 complete and added Leg 13 for NixOS module runtime smoke checks.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 13: NixOS module runtime smoke checks.
+- Added a NixOS VM check using `pkgs.testers.nixosTest` that enables `services.ptt-audio-menu` with a dummy executable package.
+- The dummy executable records its argv and selected environment variables under `/run/ptt-audio-menu`, then sleeps so systemd can observe an active service.
+- The VM check verifies the service starts, `--config` and extra arguments are passed, `RUST_LOG` is set from the module, and `PIPER_ESPEAKNG_DATA_DIRECTORY` points at eSpeak data.
+- Added minimal `audio` and `bluetooth` groups to the VM node after the first VM boot showed systemd failing at the supplementary group step in the stripped-down test machine.
+- Strengthened the Home Manager module check to assert the dummy package is present in `home.packages`, while still avoiding a hard Home Manager input.
+- The first VM build failed before boot with `No space left on device` because the `/nix/store` overlay was full. Ran Nix garbage collection, interrupted it after enough space was freed, and retried successfully.
+- Marked Leg 13 complete and added Leg 14 for a future hardware-free check that invokes the real packaged binary through a CLI path such as `--help`.
+- Verified with `nix build .#checks.x86_64-linux.nixos-service-vm`.
+- Attempted `nix flake check`; evaluation and the already-realized module/VM checks progressed, but the package check failed while realizing `rustc-1.95.0` because `/nix/store` filled again.
+- Re-verified realized module checks with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module .#checks.x86_64-linux.nixos-service-vm`.
+- Verified with `git diff --check`.
+- Could not rerun `nix build .#packages.x86_64-linux.default` or Rust `nix develop --command cargo ...` checks after the store filled; no Rust source changed in this leg.

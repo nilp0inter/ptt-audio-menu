@@ -16,3 +16,14 @@
 - Commit initially failed because Git author identity was not configured; set the local repo identity from the latest commit author.
 - Created commit `551d0af` (`Split parser and transport modules`).
 - `git push` failed because GitHub credentials were unavailable in the non-interactive environment: `could not read Username for 'https://github.com'`.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 2: hardware event normalization.
+- Changed parser events from string button/action fields to typed `Button` and `RawAction` enums while preserving token and physical button number diagnostics.
+- Added `src/input.rs` with hardware mode tracking, active/control transitions, active-mode PTT hold threshold handling, immediate control-mode PTT selection, SOS short suppression after long press, and control-mode volume scrolling.
+- Wired `InputNormalizer` into `src/main.rs` so the diagnostic loop prints both raw parser events and normalized input events.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (13 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 2 complete and added Leg 3 for TOML config loading and validation.
+- Created local commit `Add hardware input normalization`.
+- `git push` failed because the configured SSH identity was missing: `/home/nil/.ssh/assistant-cage.pub`.

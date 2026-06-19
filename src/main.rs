@@ -1,10 +1,13 @@
 use anyhow::{Context, Result};
+use std::time::Instant;
 use tokio::io::AsyncReadExt;
 
+mod input;
 mod parser;
 mod transport;
 
-use parser::Parser;
+use input::InputNormalizer;
+use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
 
 const DEVICE_ADDR: &str = "00:02:5B:55:FF:01";
@@ -14,6 +17,7 @@ async fn main() -> Result<()> {
     println!("device addr={DEVICE_ADDR}");
     let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
     let mut parser = Parser::default();
+    let mut input = InputNormalizer::default();
     let mut buf = [0u8; 1024];
 
     loop {
@@ -31,14 +35,24 @@ async fn main() -> Result<()> {
         );
 
         for event in parser.push(chunk) {
-            println!(
-                "event button={} number={} action={} token={}",
-                event.button, event.number, event.action, event.token
-            );
+            print_raw_event(event);
+            for input_event in input.push(event, Instant::now()) {
+                println!("input event={input_event:?} mode={:?}", input.mode());
+            }
         }
     }
 
     Ok(())
+}
+
+fn print_raw_event(event: Event) {
+    println!(
+        "event button={} number={} action={} token={}",
+        event.button.as_str(),
+        event.number,
+        event.action.as_str(),
+        event.token
+    );
 }
 
 fn hex(bytes: &[u8]) -> String {

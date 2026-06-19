@@ -1,9 +1,49 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Event {
     pub token: &'static str,
-    pub button: &'static str,
-    pub action: &'static str,
+    pub button: Button,
+    pub action: RawAction,
     pub number: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Button {
+    Ptt,
+    Sos,
+    Group,
+    VolumeUp,
+    VolumeDown,
+}
+
+impl Button {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ptt => "ptt",
+            Self::Sos => "sos",
+            Self::Group => "group",
+            Self::VolumeUp => "volume-up",
+            Self::VolumeDown => "volume-down",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RawAction {
+    Pressed,
+    Released,
+    LongPressed,
+    Clicked,
+}
+
+impl RawAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pressed => "pressed",
+            Self::Released => "released",
+            Self::LongPressed => "long-pressed",
+            Self::Clicked => "clicked",
+        }
+    }
 }
 
 const EVENTS: &[(&[u8], Event)] = &[
@@ -11,8 +51,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"+PTT=P",
         Event {
             token: "+PTT=P",
-            button: "ptt",
-            action: "pressed",
+            button: Button::Ptt,
+            action: RawAction::Pressed,
             number: 1,
         },
     ),
@@ -20,8 +60,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"+PTT=R",
         Event {
             token: "+PTT=R",
-            button: "ptt",
-            action: "released",
+            button: Button::Ptt,
+            action: RawAction::Released,
             number: 1,
         },
     ),
@@ -29,8 +69,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:SP*",
         Event {
             token: "C:SP*",
-            button: "sos",
-            action: "pressed",
+            button: Button::Sos,
+            action: RawAction::Pressed,
             number: 4,
         },
     ),
@@ -38,8 +78,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:SR*",
         Event {
             token: "C:SR*",
-            button: "sos",
-            action: "released",
+            button: Button::Sos,
+            action: RawAction::Released,
             number: 4,
         },
     ),
@@ -47,8 +87,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:SOS*",
         Event {
             token: "C:SOS*",
-            button: "sos",
-            action: "long-pressed",
+            button: Button::Sos,
+            action: RawAction::LongPressed,
             number: 4,
         },
     ),
@@ -56,8 +96,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:GP*",
         Event {
             token: "C:GP*",
-            button: "group",
-            action: "pressed",
+            button: Button::Group,
+            action: RawAction::Pressed,
             number: 6,
         },
     ),
@@ -65,8 +105,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:GR*",
         Event {
             token: "C:GR*",
-            button: "group",
-            action: "released",
+            button: Button::Group,
+            action: RawAction::Released,
             number: 6,
         },
     ),
@@ -74,8 +114,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:VP*",
         Event {
             token: "C:VP*",
-            button: "volume-up",
-            action: "clicked",
+            button: Button::VolumeUp,
+            action: RawAction::Clicked,
             number: 2,
         },
     ),
@@ -83,8 +123,8 @@ const EVENTS: &[(&[u8], Event)] = &[
         b"C:VM*",
         Event {
             token: "C:VM*",
-            button: "volume-down",
-            action: "clicked",
+            button: Button::VolumeDown,
+            action: RawAction::Clicked,
             number: 3,
         },
     ),
@@ -180,8 +220,8 @@ mod tests {
             parse(&[b"+PTT=P"]),
             vec![Event {
                 token: "+PTT=P",
-                button: "ptt",
-                action: "pressed",
+                button: Button::Ptt,
+                action: RawAction::Pressed,
                 number: 1
             }]
         );

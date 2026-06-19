@@ -26,4 +26,5 @@ nix develop --command cargo check
 
 - `src/main.rs`: application entry point, hardcoded target device address, RFCOMM read loop, raw diagnostic output, parser event output.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance.
-- `src/parser.rs`: token-scanning serial parser and parser unit tests.
+- `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.
+- `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, PTT threshold handling, and input semantics unit tests.

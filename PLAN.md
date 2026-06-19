@@ -196,10 +196,22 @@ The NixOS module now has real-package hardware-free checks for both `--help` and
 
 ## Leg 18: Full Flake Integration Recheck
 
-Status: pending
+Status: complete
 
 The Home Manager service path now has the same hardware-free real-package coverage as the NixOS module path. The next step should avoid new runtime features and focus on proving the complete integration surface still holds together:
 
 - Run the full flake check matrix, including package, module, real-package CLI/config checks, and the NixOS service VM when `/nix/store` capacity permits.
 - If store pressure prevents the full run, record the exact check subset that passed and any cleanup needed before retrying.
 - Keep any edits limited to check reliability, documentation accuracy, or small Nix-module integration fixes discovered by the full run.
+
+Result: attempted `nix flake check` after freeing `/nix/store` to roughly 3.2 GiB available, but the full run failed while realizing the real package dependency chain with `No space left on device` during eSpeak/mbrola/Rust toolchain substitution. Verified the flake evaluation surface with `nix flake check --no-build`, whitespace with `git diff --check`, and the lightweight module checks with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+
+## Leg 19: Store-Headroom Full Integration Retry
+
+Status: pending
+
+The full integration surface is structurally evaluated, but this machine still needs enough `/nix/store` capacity to realize the real Rust package plus VM closure in one run:
+
+- Start by checking `df -h /nix/store`; aim for substantially more than 3.2 GiB free before retrying `nix flake check`.
+- Re-run `nix flake check` and the explicit real-package checks when store capacity permits.
+- If the full run still fails for reasons other than store pressure, limit edits to check reliability or Nix integration fixes discovered by the failing check.

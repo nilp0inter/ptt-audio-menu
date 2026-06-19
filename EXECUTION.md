@@ -218,3 +218,14 @@
 - Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
 - Verified with `nix build .#checks.x86_64-linux.home-manager-real-package-help`.
 - Verified with `nix build .#checks.x86_64-linux.home-manager-real-package-config`.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 18: full flake integration recheck.
+- Found the worktree clean except for the pre-existing untracked `nixos.qcow2`.
+- Found `/nix/store` had about 352 MiB free; ran `nix-store --gc`, interrupted it after several minutes, and confirmed space increased to about 3.2 GiB.
+- Attempted `nix flake check`; flake evaluation succeeded and the run began realizing package, module, real-package, and VM checks, but failed at `checks.x86_64-linux.package` with `No space left on device` while copying/building the real package dependency chain around Rust/eSpeak/mbrola.
+- After the failed full run filled `/nix/store`, ran `nix-store --gc --max-freed 2147483648`; it deleted 5209 store paths and freed 2.5 GiB.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Verified with `git diff --check`.
+- Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+- Did not rerun the real-package checks, Rust checks, or NixOS service VM check because the full run showed that roughly 3.2 GiB free was insufficient for the real package closure on this machine.
+- Marked Leg 18 complete with the partial verification result and added Leg 19 to retry the full integration check when `/nix/store` has substantially more headroom.

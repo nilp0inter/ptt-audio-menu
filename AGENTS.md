@@ -32,3 +32,4 @@ nix develop --command cargo check
 - `src/menu.rs`: menu phase/focus state, active/global control tab resolution, input-to-action outcome mapping, and menu state unit tests.
 - `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.
 - `src/commands.rs`: async argv-list command runner, serial execution guard, optional timeout handling, Unix process-group cancellation, and command runner unit tests.
+- `src/tts.rs`: TTS cache directory resolution, stable prompt hash keys, placeholder Piper settings, WAV cache read/write helpers, and TTS cache unit tests.

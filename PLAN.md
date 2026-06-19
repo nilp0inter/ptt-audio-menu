@@ -75,7 +75,7 @@ Action dispatch now recognizes command actions but does not execute them. The ne
 
 ## Leg 7: TTS Cache Foundation
 
-Status: pending
+Status: complete
 
 Commands now execute through a serial backend, but feedback is still diagnostic stdout. The next step is to add the cache boundary needed before real audio playback:
 
@@ -84,3 +84,15 @@ Commands now execute through a serial backend, but feedback is still diagnostic 
 - Add a cache lookup/write interface that can store WAV bytes without invoking Piper yet.
 - Update startup validation/runtime wiring only enough to construct the cache.
 - Add focused tests that identical full inputs reuse the same cache path and text/model/settings changes produce different cache paths.
+
+## Leg 8: Audio Feedback Foundation
+
+Status: pending
+
+The runtime now creates a TTS cache and can store/reuse WAV bytes, but it still does not render prompts or play audio. The next step is to add the first real feedback boundary:
+
+- Add Piper rendering behind the existing TTS cache so configured labels and feedback text can be prerendered at startup.
+- Collect prompt text from tool labels, tab labels, item labels, internal speak actions, and command feedback labels.
+- Add a small audio playback module using `kira` with interrupt-latest semantics for navigation speech.
+- Wire startup to prerender prompts before connecting Bluetooth and speak the active tool label after successful startup.
+- Keep command feedback and reload behavior minimal if needed, but preserve tests around cache key reuse and add focused tests for prompt collection.

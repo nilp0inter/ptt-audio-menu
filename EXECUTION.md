@@ -79,3 +79,15 @@
 - Verified with `nix develop --command cargo test` (39 unit tests passed).
 - Verified with `nix develop --command cargo check`.
 - Marked Leg 6 complete and added Leg 7 for the TTS cache foundation.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 7: TTS cache foundation.
+- Added `src/tts.rs` with TTS cache directory resolution from config or XDG cache defaults, stable SHA-256 WAV cache keys, placeholder Piper settings, output format keying, and WAV read/write helpers.
+- Added the `sha2` dependency for cache key hashing.
+- Wired startup to construct the TTS cache after config validation and print the resolved cache directory before Bluetooth connection.
+- Added focused TTS cache tests for stable path reuse, text/model/settings/version cache misses, and WAV byte read/write behavior.
+- Initial `cargo fmt --check` found formatting changes in the new file; ran `cargo fmt`.
+- Initial `cargo test` found a TTS test helper shadowed by a local `config` binding; renamed it to `make_config`.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (42 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 7 complete and added Leg 8 for audio feedback foundation.

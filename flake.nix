@@ -65,6 +65,22 @@
               }
             ];
           };
+          nixosRealConfigEval = lib.nixosSystem {
+            inherit system;
+            modules = [
+              ./nix/nixos-module.nix
+              {
+                services.ptt-audio-menu = {
+                  enable = true;
+                  package = self.packages.${system}.default;
+                  configPath = "${self}/examples/config.validation.toml";
+                  extraArgs = [ "--check-config" ];
+                };
+
+                system.stateVersion = "25.11";
+              }
+            ];
+          };
           nixosServiceTest = pkgs.testers.nixosTest {
             name = "ptt-audio-menu-service";
             nodes.machine = {
@@ -159,6 +175,19 @@
               grep -F "Usage:" help
               grep -F -- "--config" help
               grep -F -- "--check-config" help
+              touch "$out"
+            '';
+          nixos-real-package-config = pkgs.runCommand "ptt-audio-menu-nixos-real-package-config-check"
+            {
+              src = self;
+              execStart = nixosRealConfigEval.config.systemd.services.ptt-audio-menu.serviceConfig.ExecStart;
+              packages = lib.concatMapStringsSep "\n" toString nixosRealConfigEval.config.environment.systemPackages;
+            }
+            ''
+              grep -Fx '${self.packages.${system}.default}' <<< "$packages"
+              [[ "$execStart" == *"--config ${self}/examples/config.validation.toml --check-config"* ]]
+              (cd "$src" && $execStart) > log
+              grep -F "config validation passed" log
               touch "$out"
             '';
           real-package-config-fixture = pkgs.runCommand "ptt-audio-menu-real-package-config-fixture-check"

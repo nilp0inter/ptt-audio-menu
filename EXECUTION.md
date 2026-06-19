@@ -200,3 +200,11 @@
 - Verified with `nix build .#checks.x86_64-linux.nixos-real-package-help`.
 - Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
 - Did not rerun the NixOS service VM check because `/nix/store` had only about 383 MiB free after the package/config checks.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 16: config check through module wiring.
+- Added a `nixos-real-package-config` flake check that evaluates the NixOS module with the real package, sets `services.ptt-audio-menu.configPath` to `examples/config.validation.toml`, appends `--check-config` through `extraArgs`, and runs the module-generated `ExecStart`.
+- The check runs from the source tree so the fixture's relative dummy Piper model/config paths resolve the same way as the direct real-package config fixture check.
+- Updated docs and agent notes to include the new check and its scope.
+- Marked Leg 16 complete and added Leg 17 for Home Manager service CLI smoke checks.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Verified with `nix build .#checks.x86_64-linux.nixos-real-package-config`.

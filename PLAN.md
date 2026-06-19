@@ -176,10 +176,20 @@ The flake now checks the real packaged binary through the NixOS module with `--h
 
 ## Leg 16: Config Check Through Module Wiring
 
-Status: pending
+Status: complete
 
 The real package now has a hardware-free config validation path, but the NixOS module still only invokes the real package through `--help`. The next integration step should keep focusing on module behavior:
 
 - Add a NixOS module check that wires the example config path through `services.ptt-audio-menu.configPath` and appends `--check-config` through `extraArgs`.
 - Run the module-generated `ExecStart` with the real package to prove module argument ordering works for a real config load.
 - Keep this as a derivation check, not a VM, because no long-running service behavior or hardware access is needed.
+
+## Leg 17: Home Manager Service CLI Smoke Checks
+
+Status: pending
+
+The NixOS module now has real-package hardware-free checks for both `--help` and config validation through module-generated `ExecStart`. The next module integration step should give the Home Manager service path the same kind of lightweight coverage without adding a Home Manager flake input:
+
+- Extend the existing Home Manager-compatible eval check or add a sibling derivation that uses the generated user service `ExecStart`.
+- Use the real package with a hardware-free CLI path such as `--help`, and, if practical, a config fixture with `--check-config`.
+- Keep the check lightweight and avoid starting a user systemd service, because Bluetooth/audio permissions remain host-specific.

@@ -247,3 +247,10 @@
 - Verified with `git diff --check`.
 - Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
 - Left Leg 20 pending and explicitly marked it locally blocked until the repo is run on a larger Nix store.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Re-audited pending Leg 20 and found `/nix/store` still on a 3.9 GiB overlay with 2.6 GiB available, below the roughly 3.2 GiB that already failed during the Leg 18 full package run.
+- Did not rerun full `nix flake check`, real-package checks, Rust checks, or the NixOS service VM check because the current machine still cannot realize the full package plus VM closure.
+- Verified with `nix flake check --no-build`; it warned that `homeManagerModules` is an unknown non-core output, but all checks evaluated.
+- Verified with `git diff --check`.
+- Verified with `nix build .#checks.x86_64-linux.nixos-module .#checks.x86_64-linux.home-manager-module`.
+- Left Leg 20 pending and locally blocked until a larger Nix store is available.

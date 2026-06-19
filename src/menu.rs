@@ -62,6 +62,12 @@ impl MenuState {
         &config.tools[self.active_tool_index]
     }
 
+    pub fn focused_prompt_text<'a>(&self, config: &'a Config) -> Option<&'a str> {
+        self.selected_item(config)
+            .map(|item| item.label.as_str())
+            .or_else(|| self.selected_tab(config).map(|tab| tab.label.as_str()))
+    }
+
     pub fn switch_tool(&mut self, config: &Config, tool_id: &str) -> Result<()> {
         let Some(active_tool_index) = config.tools.iter().position(|tool| tool.id == tool_id)
         else {

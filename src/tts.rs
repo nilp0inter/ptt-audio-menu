@@ -3,10 +3,12 @@
 use crate::config::{ActionConfig, Config, VoiceConfig};
 use anyhow::{bail, Context, Result};
 use directories::BaseDirs;
+use piper_rs::Piper;
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashSet,
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -83,6 +85,91 @@ impl TtsCache {
             .with_context(|| format!("write cached TTS WAV {}", path.display()))?;
         Ok(path)
     }
+}
+
+#[derive(Debug)]
+pub struct CachedPrompt {
+    text: String,
+    path: PathBuf,
+}
+
+impl CachedPrompt {
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+pub struct TtsRenderer {
+    piper: Piper,
+}
+
+impl TtsRenderer {
+    pub fn new(voice: &VoiceConfig) -> Result<Self> {
+        let piper = Piper::new(&voice.model_path, &voice.config_path)
+            .map_err(|err| anyhow::anyhow!(err))
+            .with_context(|| {
+                format!(
+                    "load Piper voice model={} config={}",
+                    voice.model_path.display(),
+                    voice.config_path.display()
+                )
+            })?;
+        Ok(Self { piper })
+    }
+
+    pub fn render_wav(&mut self, input: &TtsCacheInput<'_>) -> Result<Vec<u8>> {
+        let speaker_id = input
+            .settings
+            .speaker
+            .as_deref()
+            .map(str::parse::<i64>)
+            .transpose()
+            .context("parse Piper speaker id")?;
+        let length_scale = parse_piper_float("length_scale", &input.settings.length_scale)?;
+        let noise_scale = parse_piper_float("noise_scale", &input.settings.noise_scale)?;
+        let noise_w = parse_piper_float("noise_w", &input.settings.noise_w)?;
+        let (samples, sample_rate) = self
+            .piper
+            .create(
+                input.text,
+                false,
+                speaker_id,
+                Some(length_scale),
+                Some(noise_scale),
+                Some(noise_w),
+            )
+            .map_err(|err| anyhow::anyhow!(err))
+            .with_context(|| format!("render TTS prompt {:?}", input.text))?;
+        Ok(wav_pcm16_from_f32(&samples, sample_rate, 1))
+    }
+}
+
+pub fn prerender_prompts(
+    cache: &TtsCache,
+    renderer: &mut TtsRenderer,
+    voice: &VoiceConfig,
+    prompts: &[String],
+) -> Result<Vec<CachedPrompt>> {
+    let mut cached = Vec::with_capacity(prompts.len());
+    for prompt in prompts {
+        let input = TtsCacheInput::new(prompt, voice);
+        let path = match cache.read_wav(&input)? {
+            Some(_) => cache.wav_path(&input),
+            None => {
+                let wav = renderer.render_wav(&input)?;
+                cache.write_wav(&input, &wav)?
+            }
+        };
+        cached.push(CachedPrompt {
+            text: prompt.clone(),
+            path,
+        });
+    }
+    Ok(cached)
 }
 
 #[derive(Clone, Debug)]
@@ -225,6 +312,52 @@ fn path_key(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+fn parse_piper_float(label: &str, value: &str) -> Result<f32> {
+    value
+        .parse()
+        .with_context(|| format!("parse Piper setting {label}={value:?}"))
+}
+
+fn wav_pcm16_from_f32(samples: &[f32], sample_rate: u32, channels: u16) -> Vec<u8> {
+    let samples_i16: Vec<i16> = samples
+        .iter()
+        .map(|sample| {
+            (sample.clamp(-1.0, 1.0) * f32::from(i16::MAX))
+                .round()
+                .clamp(f32::from(i16::MIN), f32::from(i16::MAX)) as i16
+        })
+        .collect();
+    wav_pcm16_from_i16(&samples_i16, sample_rate, channels)
+}
+
+fn wav_pcm16_from_i16(samples: &[i16], sample_rate: u32, channels: u16) -> Vec<u8> {
+    let data_len = (samples.len() * 2) as u32;
+    let byte_rate = sample_rate * u32::from(channels) * 2;
+    let mut out = Vec::with_capacity(44 + data_len as usize);
+    out.write_all(b"RIFF").expect("write to Vec");
+    out.write_all(&(36 + data_len).to_le_bytes())
+        .expect("write to Vec");
+    out.write_all(b"WAVEfmt ").expect("write to Vec");
+    out.write_all(&16u32.to_le_bytes()).expect("write to Vec");
+    out.write_all(&1u16.to_le_bytes()).expect("write to Vec");
+    out.write_all(&channels.to_le_bytes())
+        .expect("write to Vec");
+    out.write_all(&sample_rate.to_le_bytes())
+        .expect("write to Vec");
+    out.write_all(&byte_rate.to_le_bytes())
+        .expect("write to Vec");
+    out.write_all(&(channels * 2).to_le_bytes())
+        .expect("write to Vec");
+    out.write_all(&16u16.to_le_bytes()).expect("write to Vec");
+    out.write_all(b"data").expect("write to Vec");
+    out.write_all(&data_len.to_le_bytes())
+        .expect("write to Vec");
+    for sample in samples {
+        out.write_all(&sample.to_le_bytes()).expect("write to Vec");
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,6 +452,20 @@ mod tests {
             cache.read_wav(&input).expect("read hit"),
             Some(b"RIFFwav".to_vec())
         );
+    }
+
+    #[test]
+    fn wav_writer_outputs_pcm16_header_and_samples() {
+        let wav = wav_pcm16_from_i16(&[0, i16::MAX, i16::MIN], 22_050, 1);
+
+        assert_eq!(&wav[0..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        assert_eq!(&wav[12..16], b"fmt ");
+        assert_eq!(&wav[36..40], b"data");
+        assert_eq!(u32::from_le_bytes(wav[40..44].try_into().unwrap()), 6);
+        assert_eq!(&wav[44..46], &0i16.to_le_bytes());
+        assert_eq!(&wav[46..48], &i16::MAX.to_le_bytes());
+        assert_eq!(&wav[48..50], &i16::MIN.to_le_bytes());
     }
 
     #[test]

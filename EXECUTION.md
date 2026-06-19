@@ -101,3 +101,18 @@
 - Verified with `nix develop --command cargo fmt --check`.
 - Verified with `nix develop --command cargo test` (43 unit tests passed). Nix printed a transient eval-cache SQLite busy warning, but Cargo completed successfully.
 - Verified with `nix develop --command cargo check`.
+- Read `PROMPT.md`, `DESIGN.md`, `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` at the start of the next session.
+- Selected pending Leg 9: TTS rendering and audio playback foundation.
+- Added `kira` and `piper-rs` dependencies.
+- Added `src/audio.rs` with a Kira-backed `AudioPlayer` that stops the current prompt before playing the next cached WAV.
+- Added Piper-backed TTS rendering in `src/tts.rs`, cache-aware prompt prerendering, PCM16 WAV serialization, and a WAV header/unit sample test.
+- Exposed the current menu focus prompt text from `MenuState`.
+- Wired startup to prerender all collected prompts before Bluetooth connection, create the audio player after connecting, and speak the active tool label after successful startup.
+- Wired control entry/focus changes to speak the focused item or tab prompt using interrupt-latest playback.
+- Wired internal `speak` actions to play their configured text, `stop_audio` to stop the current prompt, and tool switching to speak the new active tool label.
+- Updated the Nix dev shell for native audio/TTS dependencies: ALSA, OpenSSL, eSpeak-ng, libclang, glibc bindgen headers, and CMake. The missing pieces were discovered through successive build failures in `alsa-sys`, `openssl-sys`, and `espeak-rs-sys`.
+- Set `PIPER_ESPEAKNG_DATA_DIRECTORY` in the dev shell to the Nix-provided eSpeak data directory so Piper can find phonemization data during local runs.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (44 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Marked Leg 9 complete and added Leg 10 for command feedback and reload runtime actions.

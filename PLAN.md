@@ -98,7 +98,7 @@ The runtime creates a TTS cache, but audio rendering/playback is a large enough 
 
 ## Leg 9: TTS Rendering and Audio Playback Foundation
 
-Status: pending
+Status: complete
 
 The runtime now knows which prompt texts need speech, but it still does not render prompts or play audio. The next step is to add the first real feedback backend:
 
@@ -107,3 +107,15 @@ The runtime now knows which prompt texts need speech, but it still does not rend
 - Wire startup to prerender prompts before connecting Bluetooth and speak the active tool label after successful startup.
 - Add navigation speech for control entry/focus changes using cached prompt audio.
 - Keep command feedback and reload behavior minimal if needed, but preserve tests around cache key reuse and prompt collection.
+
+## Leg 10: Command Feedback and Runtime Control Actions
+
+Status: pending
+
+The program now prerenders configured prompts and uses cached audio for startup, navigation, `speak`, tool switching, and `stop_audio`, but command feedback and reload semantics are still minimal. The next step is to finish the remaining runtime action effects:
+
+- Speak command feedback labels for start, success, and failure using cached prompt audio.
+- Preserve serial command execution while allowing feedback playback to occur around background command completion.
+- Implement `reload_config` so it validates and prerenders the replacement config, applies it only on success, and exits/logs/speaks failure on validation or render errors.
+- Keep `cancel_running_action` and `stop_audio` behavior intact.
+- Add focused tests around feedback effect data and any reload helper that can be tested without Bluetooth hardware.

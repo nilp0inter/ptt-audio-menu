@@ -376,8 +376,9 @@ fn wav_pcm16_from_i16(samples: &[i16], sample_rate: u32, channels: u16) -> Vec<u
 mod tests {
     use super::*;
     use crate::config::{
-        ActiveHooks, AudioConfig, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
-        InternalActionConfig, InternalCommand, ItemConfig, TabConfig, ToolConfig,
+        ActiveHooks, AudioConfig, BluetoothConfig, CacheConfig, CommandActionConfig,
+        FeedbackConfig, GlobalDefaults, InternalActionConfig, InternalCommand, ItemConfig,
+        TabConfig, ToolConfig,
     };
     use std::collections::HashMap;
     use tempfile::TempDir;
@@ -389,6 +390,9 @@ mod tests {
     ) -> Config {
         Config {
             default_tool: "radio".to_string(),
+            bluetooth: BluetoothConfig {
+                device: "00:02:5B:55:FF:01".to_string(),
+            },
             voice: VoiceConfig {
                 model_path,
                 config_path: voice_config_path,
@@ -487,6 +491,9 @@ mod tests {
     fn collects_unique_prompt_texts_in_stable_order() {
         let config = Config {
             default_tool: "radio".to_string(),
+            bluetooth: BluetoothConfig {
+                device: "00:02:5B:55:FF:01".to_string(),
+            },
             voice: VoiceConfig {
                 model_path: PathBuf::from("/voices/en.onnx"),
                 config_path: PathBuf::from("/voices/en.json"),

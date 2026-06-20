@@ -6,10 +6,10 @@ execution, native recording packets, and spoken feedback.
 
 ![B02PTT-FF01 remote speaker microphone](docs/assets/b02ptt-ff01.jpg)
 
-The current target device is hardcoded:
+The target RSM address is configured in TOML:
 
 - Device name: `B02PTT-FF01`
-- Bluetooth MAC: `00:02:5B:55:FF:01`
+- Example Bluetooth MAC: `00:02:5B:55:FF:01`
 - Service: RFCOMM Serial Port Profile, UUID `00001101-0000-1000-8000-00805f9b34fb`
 - SDP service name: `GAIA`
 
@@ -36,9 +36,6 @@ Implemented:
 
 Known constraints:
 
-- Target RSM MAC is still hardcoded in `src/main.rs`.
-- `[audio].device` is parsed, but runtime routing currently derives the
-  PipeWire node from the hardcoded MAC.
 - Bluetooth pairing/device discovery is not implemented.
 - Command actions are argv-list only; shell-string command actions are rejected.
 - ASR model files are not downloaded or packaged.
@@ -141,6 +138,9 @@ Minimal shape:
 ```toml
 default_tool = "radio"
 
+[bluetooth]
+device = "00:02:5B:55:FF:01"
+
 [voice]
 model_path = "/path/to/voice.onnx"
 config_path = "/path/to/voice.json"
@@ -151,9 +151,6 @@ active_ptt_trigger = "release_after_hold"
 
 [cache]
 tts_dir = "/tmp/ptt-audio-menu/tts"
-
-[audio]
-device = "B02PTT-FF01"
 
 [[tools]]
 id = "radio"
@@ -285,7 +282,9 @@ Startup sequence:
 
 Audio routing:
 
-- Runtime derives `bluez_output.00_02_5B_55_FF_01.1` from the hardcoded MAC.
+- Runtime derives `bluez_output.<MAC_WITH_UNDERSCORES>.1` from
+  `[audio].device`, or from `[bluetooth].device` when `[audio].device` is
+  omitted.
 - It sets `PIPEWIRE_NODE` before Kira/cpal initializes.
 - This avoids runtime `pw-dump` calls and cpal output-device enumeration, which
   does not expose PipeWire-native Bluetooth sinks on this system.

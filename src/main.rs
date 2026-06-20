@@ -29,8 +29,6 @@ use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
 use tts::{collect_prompt_texts, prerender_prompts, CachedPrompt, TtsCache, TtsRenderer};
 
-const DEVICE_ADDR: &str = "00:02:5B:55:FF:01";
-
 #[derive(Debug, ClapParser)]
 struct Cli {
     #[arg(long)]
@@ -66,9 +64,16 @@ async fn main() -> Result<()> {
     );
     info!(tts_cache_dir = %runtime.tts_cache_dir.display(), "resolved TTS cache");
     info!(prompt_count = runtime.prompt_count, "prepared TTS prompts");
-    info!(device_addr = DEVICE_ADDR, "connecting device");
-    let mut stream = connect_rfcomm_stream(DEVICE_ADDR).await?;
-    let mut audio = AudioPlayer::new(runtime.config.audio.device.as_deref(), Some(DEVICE_ADDR))?;
+    let bluetooth_device = runtime.config.bluetooth.device.clone();
+    let audio_device = runtime
+        .config
+        .audio
+        .device
+        .as_deref()
+        .unwrap_or(&bluetooth_device);
+    info!(device_addr = %bluetooth_device, "connecting device");
+    let mut stream = connect_rfcomm_stream(&bluetooth_device).await?;
+    let mut audio = AudioPlayer::new(runtime.config.audio.device.as_deref(), Some(audio_device))?;
     let mut parser = Parser::default();
     let mut input = input_normalizer_for(&runtime.config);
     let mut menu = MenuState::new(&runtime.config)?;

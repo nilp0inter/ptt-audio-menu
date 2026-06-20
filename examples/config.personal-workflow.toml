@@ -1,5 +1,8 @@
 default_tool = "handy"
 
+[bluetooth]
+device = "00:02:5B:55:FF:01"
+
 [voice]
 model_path = "/tmp/en_GB-alan-medium.onnx"
 config_path = "/tmp/voice.conf"
@@ -10,9 +13,6 @@ active_ptt_trigger = "hold_toggle"
 
 [cache]
 tts_dir = "target/ptt-audio-menu/tts-cache"
-
-[audio]
-device = "B02PTT-FF01"
 
 [[tools]]
 id = "handy"

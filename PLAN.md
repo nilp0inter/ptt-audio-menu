@@ -281,7 +281,7 @@ This leg adds the requested native packet recording mode and daily-log workflow:
 - Added Parakeet TDT processing through `parakeet-rs`; model files are supplied through a local `model_dir`, and default tests do not execute model inference.
 - Renamed the Handy example to `examples/config.personal-workflow.toml`, kept Handy plain/polished tools, and added a separate `daily-log` tool plus `examples/daily_log_render.py`.
 
-Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, and `nix develop --command cargo check` passed.
+Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, `nix develop --command cargo check`, and `nix develop --command cargo run -- --config examples/config.validation.toml --check-config` passed.
 
 ## Leg 24: Project README
 
@@ -296,3 +296,18 @@ Added a top-level `README.md` that documents the implemented runtime and integra
 - Audio/TTS startup behavior, PipeWire routing, packet queue layout, Nix package/module usage, verification commands, and source layout.
 
 Verification: `git diff --check` passed.
+
+## Leg 25: Configured Bluetooth Device Address
+
+Status: complete
+
+The runtime no longer assumes the local development RSM MAC address:
+
+- Added a required `[bluetooth] device = "<MAC>"` config field for RFCOMM transport.
+- Removed the hardcoded `DEVICE_ADDR` constant from `src/main.rs`.
+- Runtime now connects RFCOMM using `[bluetooth].device`.
+- Audio routing still accepts optional `[audio].device`; when omitted, it falls back to `[bluetooth].device` to preserve the existing Bluetooth sink routing behavior.
+- Updated example configs and documentation to stop using the Bluetooth device name as an audio routing value.
+- Added config validation coverage for missing and invalid Bluetooth device addresses.
+
+Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, and `nix develop --command cargo check` passed.

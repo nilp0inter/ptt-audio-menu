@@ -325,8 +325,8 @@ fn is_recording_packet_action(config: &Config, action_id: &str) -> bool {
 mod tests {
     use super::*;
     use crate::config::{
-        ActionConfig, ActiveHooks, AudioConfig, CacheConfig, GlobalDefaults, InternalActionConfig,
-        InternalCommand, ItemConfig, VoiceConfig,
+        ActionConfig, ActiveHooks, AudioConfig, BluetoothConfig, CacheConfig, GlobalDefaults,
+        InternalActionConfig, InternalCommand, ItemConfig, VoiceConfig,
     };
     use std::path::PathBuf;
 
@@ -359,6 +359,9 @@ mod tests {
     fn config() -> Config {
         Config {
             default_tool: "radio".to_string(),
+            bluetooth: BluetoothConfig {
+                device: "00:02:5B:55:FF:01".to_string(),
+            },
             voice: VoiceConfig {
                 model_path: PathBuf::from("voice.onnx"),
                 config_path: PathBuf::from("voice.json"),

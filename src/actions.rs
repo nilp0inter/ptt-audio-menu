@@ -167,8 +167,9 @@ fn recording_packet_effect(
 mod tests {
     use super::*;
     use crate::config::{
-        ActiveHooks, AudioConfig, CacheConfig, CommandActionConfig, FeedbackConfig, GlobalDefaults,
-        InternalActionConfig, ItemConfig, TabConfig, ToolConfig, VoiceConfig,
+        ActiveHooks, AudioConfig, BluetoothConfig, CacheConfig, CommandActionConfig,
+        FeedbackConfig, GlobalDefaults, InternalActionConfig, ItemConfig, TabConfig, ToolConfig,
+        VoiceConfig,
     };
     use crate::input::InputEvent;
     use crate::menu::{MenuOutcome, MenuPhase};
@@ -198,6 +199,9 @@ mod tests {
     fn config() -> Config {
         Config {
             default_tool: "radio".to_string(),
+            bluetooth: BluetoothConfig {
+                device: "00:02:5B:55:FF:01".to_string(),
+            },
             voice: VoiceConfig {
                 model_path: PathBuf::from("voice.onnx"),
                 config_path: PathBuf::from("voice.json"),

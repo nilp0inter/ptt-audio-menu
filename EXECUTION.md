@@ -324,3 +324,12 @@
 - Updated `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` for the README/layout change.
 - Verified with `git diff --check`.
 - Follow-up README image change: downloaded the requested B02PTT-FF01 JPEG into `docs/assets/b02ptt-ff01.jpg` and changed `README.md` to reference the local asset instead of the remote URL.
+- New remote Bluetooth diagnostics session: created an SSH ControlMaster to `nil@10.4.1.92`; confirmed remote BlueZ is powered and BR/EDR-capable; `bluetoothctl info 00:02:5B:55:FF:01` reported the hardcoded device unavailable, while the remote host has paired/trusted `B02PTT-FF01` as `E7:11:5B:55:FF:02`. The remote failure was therefore caused by the runtime hardcoded MAC not matching the remote host's known device address.
+- Implemented configured Bluetooth device support: added required `[bluetooth] device = "<MAC>"`, validation through `bluer::Address` parsing, runtime RFCOMM connection from config, and `[audio].device` fallback to `[bluetooth].device`.
+- Updated `examples/config.validation.toml` and `examples/config.personal-workflow.toml` with `[bluetooth] device`.
+- Removed the misleading committed `[audio] device = "B02PTT-FF01"` examples because audio routing expects a MAC-derived PipeWire node, not the display name.
+- Updated `README.md`, `DESIGN.md`, `PLAN.md`, and `AGENTS.md` to document configured device addressing and audio fallback behavior.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (59 unit tests passed).
+- Verified with `nix develop --command cargo check`.
+- Verified with `nix develop --command cargo run -- --config examples/config.validation.toml --check-config`.

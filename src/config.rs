@@ -16,6 +16,7 @@ const CONFIG_FILE: &str = "config.toml";
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub default_tool: String,
+    pub bluetooth: BluetoothConfig,
     pub voice: VoiceConfig,
     #[serde(default)]
     pub cache: CacheConfig,
@@ -29,6 +30,12 @@ pub struct Config {
     pub global_tabs: Vec<TabConfig>,
     #[serde(default)]
     pub actions: Vec<ActionConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BluetoothConfig {
+    pub device: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -266,6 +273,7 @@ pub fn load_config(path: &Path) -> Result<Config> {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         validate_slug("default_tool", &self.default_tool)?;
+        validate_bluetooth_address("bluetooth.device", &self.bluetooth.device)?;
         validate_existing_file("voice.model_path", &self.voice.model_path)?;
         validate_existing_file("voice.config_path", &self.voice.config_path)?;
 
@@ -442,6 +450,13 @@ fn validate_slug(label: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_bluetooth_address(label: &str, value: &str) -> Result<()> {
+    value
+        .parse::<bluer::Address>()
+        .with_context(|| format!("{label} '{value}' is not a valid Bluetooth address"))?;
+    Ok(())
+}
+
 fn validate_existing_file(label: &str, path: &Path) -> Result<()> {
     if !path.is_file() {
         bail!("{label} '{}' is not an existing file", path.display());
@@ -502,6 +517,9 @@ mod tests {
             format!(
                 r#"
 default_tool = "radio"
+
+[bluetooth]
+device = "00:02:5B:55:FF:01"
 
 [voice]
 model_path = "{}"
@@ -591,6 +609,26 @@ argv = ["date"]
     #[test]
     fn valid_config_passes_validation() {
         Fixture::new().config().validate().unwrap();
+    }
+
+    #[test]
+    fn missing_bluetooth_device_fails_to_parse() {
+        let fixture = Fixture::new();
+        let toml = fixture
+            .toml()
+            .replace("[bluetooth]\ndevice = \"00:02:5B:55:FF:01\"\n\n", "");
+        let err = toml::from_str::<Config>(&toml).unwrap_err().to_string();
+        assert!(err.contains("missing field `bluetooth`"));
+    }
+
+    #[test]
+    fn invalid_bluetooth_device_fails_validation() {
+        let fixture = Fixture::new();
+        let mut config = fixture.config();
+        config.bluetooth.device = "B02PTT-FF01".to_string();
+
+        let err = config.validate().unwrap_err().to_string();
+        assert!(err.contains("bluetooth.device"));
     }
 
     #[test]

@@ -1,5 +1,8 @@
 default_tool = "radio"
 
+[bluetooth]
+device = "00:02:5B:55:FF:01"
+
 [voice]
 model_path = "examples/fixtures/voice.onnx"
 config_path = "examples/fixtures/voice.json"
@@ -9,9 +12,6 @@ active_ptt_hold_ms = 350
 
 [cache]
 tts_dir = "target/ptt-audio-menu/tts-cache"
-
-[audio]
-device = "B02PTT-FF01"
 
 [[tools]]
 id = "radio"

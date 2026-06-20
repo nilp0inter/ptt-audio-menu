@@ -74,3 +74,5 @@ nix develop --command cargo check
 - `nix/nixos-module.nix`: NixOS service module for system-level installation and systemd wiring.
 - `nix/home-manager-module.nix`: Home Manager module for package installation and optional user-level service wiring.
 - `docs/nix-modules.md`: NixOS/Home Manager usage examples and check limitations.
+- `docs/assets/b02ptt-ff01.jpg`: README product image for the target RSM.
+- `README.md`: top-level project documentation for implemented hardware behavior, runtime model, configuration, audio/TTS, packet queues, Nix modules, verification, and source layout.

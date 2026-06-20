@@ -320,3 +320,7 @@
 - Verified with `nix develop --command cargo fmt --check`.
 - Verified with `nix develop --command cargo test` (57 unit tests passed).
 - Verified with `nix develop --command cargo check`.
+- New README session: read the project docs, source modules, examples, Nix modules, and module docs; added top-level `README.md` covering implemented hardware behavior, runtime model, config schema, audio/TTS, recording packet queues, Nix usage, verification, and source layout.
+- Updated `PLAN.md`, `EXECUTION.md`, and `AGENTS.md` for the README/layout change.
+- Verified with `git diff --check`.
+- Follow-up README image change: downloaded the requested B02PTT-FF01 JPEG into `docs/assets/b02ptt-ff01.jpg` and changed `README.md` to reference the local asset instead of the remote URL.

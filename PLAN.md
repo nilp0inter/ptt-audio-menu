@@ -282,3 +282,17 @@ This leg adds the requested native packet recording mode and daily-log workflow:
 - Renamed the Handy example to `examples/config.personal-workflow.toml`, kept Handy plain/polished tools, and added a separate `daily-log` tool plus `examples/daily_log_render.py`.
 
 Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, and `nix develop --command cargo check` passed.
+
+## Leg 24: Project README
+
+Status: complete
+
+Added a top-level `README.md` that documents the implemented runtime and integration surface:
+
+- Hardware target, serial tokens, and active/control button semantics.
+- Implemented features and current constraints.
+- Build, run, and config validation commands.
+- TOML configuration shape, action types, active PTT trigger modes, and recording packet examples.
+- Audio/TTS startup behavior, PipeWire routing, packet queue layout, Nix package/module usage, verification commands, and source layout.
+
+Verification: `git diff --check` passed.

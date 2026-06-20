@@ -109,7 +109,7 @@
               machine.succeed("grep -Fx -- '${dummyConfig}' /run/ptt-audio-menu/args")
               machine.succeed("grep -Fx -- '--module-smoke' /run/ptt-audio-menu/args")
               machine.succeed("grep -Fx -- 'RUST_LOG=ptt_audio_menu=debug,info' /run/ptt-audio-menu/env")
-              machine.succeed("grep -E '^PIPER_ESPEAKNG_DATA_DIRECTORY=.+espeak-ng-data$' /run/ptt-audio-menu/env")
+              machine.succeed("grep -E '^PIPER_ESPEAKNG_DATA_DIRECTORY=.+/share$' /run/ptt-audio-menu/env")
             '';
           };
           homeEval = lib.evalModules {
@@ -319,7 +319,7 @@
             PKG_CONFIG_PATH = "${pkgs.alsa-lib.dev}/lib/pkgconfig:${pkgs.dbus.dev}/lib/pkgconfig:${pkgs.openssl.dev}/lib/pkgconfig";
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
             BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.glibc.dev}/include";
-            PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share/espeak-ng-data";
+            PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share";
           };
         });
     };

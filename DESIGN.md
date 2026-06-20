@@ -104,6 +104,8 @@ Use `--config <path>`, otherwise load `$XDG_CONFIG_HOME/ptt-audio-menu/config.to
 - `command`: argv-list only, no shell string. Inherits process cwd/env, with optional per-action `cwd` and extra env.
 - Commands have no timeout by default; per-action timeout is optional.
 - Per-action feedback is optional: start/success/failure spoken labels.
+- `recording_packet`: active PTT press starts native recording from the default input device; active PTT release stops recording, writes a 16 kHz mono PCM WAV named from the UTC start timestamp, writes same-basename operational JSON metadata, and enqueues the packet for durable background processing.
+- Recording packet actions define per-action storage directories, retry limits, exponential backoff bounds, feedback labels, and a built-in processor. The first built-in processor is `daily_log_parakeet`, which loads NVIDIA Parakeet TDT model files from a local directory via `parakeet-rs`, appends transcript/timestamp/audio-path entries to a per-day JSON file, and invokes a configured HTML renderer script.
 
 ---
 
@@ -122,6 +124,7 @@ Use `--config <path>`, otherwise load `$XDG_CONFIG_HOME/ptt-audio-menu/config.to
 - Shell commands spawn in their own process group.
 - `cancel_running_action` terminates the running command process group where supported.
 - `reload_config` validates and prerenders the new config; on failure, speak/log failure and exit process.
+- Recording packets have one durable queue worker per recording action. Each queue stores packet WAV/JSON pairs under `queued`, `processing`, `processed`, and `dead-letter`; workers process packets in timestamp order, retry failures with exponential backoff, move exhausted packets to dead-letter, and continue with later packets. Stale `processing` packets are recovered to `queued` on startup.
 
 ### Logging
 - Replace ad hoc `println!` diagnostics with `tracing` stdout logging.
@@ -140,9 +143,10 @@ Split the current single-file binary into distinct modules:
 - TTS Cache
 - Audio Playback
 - Action Execution
+- Native Recording & Packet Queues
 
 ### Dependencies
-Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `directories` (or equivalent XDG helper), `tracing`, `tracing-subscriber`, `sha2`, `piper-rs`, `kira`, and `bluer`.
+Add support for config/CLI/logging/TTS/audio/cache/recording/ASR: `serde`, `serde_json`, `toml`, `clap`, `directories` (or equivalent XDG helper), `tracing`, `tracing-subscriber`, `sha2`, `piper-rs`, `kira`, `cpal`, `hound`, `parakeet-rs`, and `bluer`.
 
 ### Current Constraints
 - Device MAC is hardcoded.
@@ -154,7 +158,9 @@ Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `di
 - No systemd/NixOS service.
 - No automatic device discovery by name.
 - No pairing workflow.
-- No state persistence.
+- No managed ASR model download.
+- No manual packet requeue CLI.
+- Packet state persistence is limited to recording packet queues.
 
 ---
 
@@ -167,6 +173,7 @@ Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `di
   - Unknown tool/action references
   - Invalid Piper paths
   - Command action rejects shell-string-only config
+  - Recording packet action validates retry policy and built-in processor paths
 - **Menu state tests:**
   - Active to Control via Group
   - Tab cycling via Group
@@ -177,6 +184,7 @@ Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `di
   - Re-entering Control returns to the last selected valid tab/item instead of resetting to the first tab
 - **Input semantics tests:**
   - Active PTT threshold suppresses short accidental taps
+  - Active PTT press/release edges remain available for recording packet actions
   - Control PTT bypasses threshold
   - SOS short suppressed after long signal
   - Hold-toggle PTT fires at the hold threshold and again on release only when the threshold fire occurred
@@ -188,6 +196,11 @@ Add support for config/CLI/logging/TTS/audio/cache: `serde`, `toml`, `clap`, `di
   - Optional timeout works when configured
   - Cancel terminates process group
   - Reload failure exits instead of partially applying config
+- **Packet queue tests:**
+  - WAV writer emits 16 kHz mono PCM
+  - Packet creation writes WAV+JSON to `queued`
+  - Retry backoff caps at the configured maximum
+  - Daily JSON/HTML processing is tested without running full Parakeet inference in default checks
 
 ---
 

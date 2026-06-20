@@ -1,6 +1,8 @@
 use crate::{
-    config::{ActionConfig, CommandActionConfig, Config, InternalCommand},
-    menu::MenuState,
+    config::{
+        ActionConfig, CommandActionConfig, Config, InternalCommand, RecordingPacketActionConfig,
+    },
+    menu::{MenuState, RecordingPacketEvent},
 };
 use anyhow::{bail, Result};
 use std::{collections::HashMap, path::PathBuf};
@@ -23,6 +25,11 @@ pub struct CommandFeedback {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordingPacketRequest {
+    pub action_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ActionEffect {
     Noop {
         action_id: String,
@@ -40,6 +47,10 @@ pub enum ActionEffect {
     },
     CommandQueued {
         command: CommandRequest,
+    },
+    RecordingPacket {
+        request: RecordingPacketRequest,
+        event: RecordingPacketEvent,
     },
 }
 
@@ -100,6 +111,25 @@ impl ActionDispatcher {
                 }),
             },
             ActionConfig::Command(action) => Ok(command_queued_effect(action)),
+            ActionConfig::RecordingPacket(_) => {
+                bail!("recording action '{action_id}' requires a PTT edge")
+            }
+        }
+    }
+
+    pub fn dispatch_recording_packet(
+        &self,
+        config: &Config,
+        action_id: &str,
+        event: RecordingPacketEvent,
+    ) -> Result<ActionEffect> {
+        let Some(action_index) = self.action_indexes.get(action_id) else {
+            bail!("unknown action '{action_id}'");
+        };
+
+        match &config.actions[*action_index] {
+            ActionConfig::RecordingPacket(action) => Ok(recording_packet_effect(action, event)),
+            _ => bail!("action '{action_id}' is not a recording_packet action"),
         }
     }
 }
@@ -118,6 +148,18 @@ fn command_queued_effect(action: &CommandActionConfig) -> ActionEffect {
                 failure: action.feedback.failure.clone(),
             },
         },
+    }
+}
+
+fn recording_packet_effect(
+    action: &RecordingPacketActionConfig,
+    event: RecordingPacketEvent,
+) -> ActionEffect {
+    ActionEffect::RecordingPacket {
+        request: RecordingPacketRequest {
+            action_id: action.id.clone(),
+        },
+        event,
     }
 }
 

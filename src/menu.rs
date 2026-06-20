@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, TabConfig, ToolConfig},
+    config::{ActionConfig, Config, TabConfig, ToolConfig},
     input::{HardwareMode, InputEvent},
 };
 use anyhow::{bail, Result};
@@ -27,6 +27,16 @@ pub enum MenuOutcome {
     Action {
         action_id: String,
     },
+    RecordingPacket {
+        action_id: String,
+        event: RecordingPacketEvent,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RecordingPacketEvent {
+    Start,
+    Stop,
 }
 
 #[derive(Debug)]
@@ -92,11 +102,18 @@ impl MenuState {
 
     pub fn push(&mut self, config: &Config, event: InputEvent) -> Vec<MenuOutcome> {
         match event {
+            InputEvent::ActivePttPressed if self.phase == MenuPhase::Active => self
+                .recording_active_ptt_action(config)
+                .map(|action_id| recording_outcome(action_id, RecordingPacketEvent::Start))
+                .into_iter()
+                .collect(),
+            InputEvent::ActivePttReleased if self.phase == MenuPhase::Active => self
+                .recording_active_ptt_action(config)
+                .map(|action_id| recording_outcome(action_id, RecordingPacketEvent::Stop))
+                .into_iter()
+                .collect(),
             InputEvent::ActivePtt if self.phase == MenuPhase::Active => self
-                .active_tool(config)
-                .active_hooks
-                .ptt
-                .as_ref()
+                .non_recording_active_ptt_action(config)
                 .map(action_outcome)
                 .into_iter()
                 .collect(),
@@ -191,6 +208,24 @@ impl MenuState {
             .and_then(|item| item.alternate_action.as_ref())
     }
 
+    fn non_recording_active_ptt_action<'a>(&self, config: &'a Config) -> Option<&'a String> {
+        let action_id = self.active_tool(config).active_hooks.ptt.as_ref()?;
+        if is_recording_packet_action(config, action_id) {
+            None
+        } else {
+            Some(action_id)
+        }
+    }
+
+    fn recording_active_ptt_action<'a>(&self, config: &'a Config) -> Option<&'a String> {
+        let action_id = self.active_tool(config).active_hooks.ptt.as_ref()?;
+        if is_recording_packet_action(config, action_id) {
+            Some(action_id)
+        } else {
+            None
+        }
+    }
+
     fn clamp_focus(&mut self, config: &Config) {
         let tab_count = self.control_tab_count(config);
         if tab_count == 0 {
@@ -271,6 +306,19 @@ fn action_outcome(action_id: &String) -> MenuOutcome {
     MenuOutcome::Action {
         action_id: action_id.clone(),
     }
+}
+
+fn recording_outcome(action_id: &String, event: RecordingPacketEvent) -> MenuOutcome {
+    MenuOutcome::RecordingPacket {
+        action_id: action_id.clone(),
+        event,
+    }
+}
+
+fn is_recording_packet_action(config: &Config, action_id: &str) -> bool {
+    config.actions.iter().any(
+        |action| matches!(action, ActionConfig::RecordingPacket(action) if action.id == action_id),
+    )
 }
 
 #[cfg(test)]

@@ -12,7 +12,9 @@ mod commands;
 mod config;
 mod input;
 mod menu;
+mod packets;
 mod parser;
+mod recorder;
 mod transport;
 mod tts;
 
@@ -22,6 +24,7 @@ use commands::{CommandExecution, CommandOutcome, CommandRunner};
 use config::{load_config, resolve_config_path, Config, InternalCommand};
 use input::{InputEvent, InputNormalizer};
 use menu::{MenuOutcome, MenuState};
+use packets::{PacketRuntime, RecordingActionOutcome};
 use parser::{Event, Parser};
 use transport::connect_rfcomm_stream;
 use tts::{collect_prompt_texts, prerender_prompts, CachedPrompt, TtsCache, TtsRenderer};
@@ -69,6 +72,7 @@ async fn main() -> Result<()> {
     let mut parser = Parser::default();
     let mut input = input_normalizer_for(&runtime.config);
     let mut menu = MenuState::new(&runtime.config)?;
+    let mut packet_runtime = PacketRuntime::new(runtime.config.clone())?;
     let command_runner = CommandRunner::new();
     let (command_tx, mut command_rx) = tokio::sync::mpsc::unbounded_channel();
     let mut buf = [0u8; 1024];
@@ -96,6 +100,7 @@ async fn main() -> Result<()> {
                     &mut runtime,
                     &command_runner,
                     &command_tx,
+                    &mut packet_runtime,
                     &mut audio,
                 )
                 .await?;
@@ -111,6 +116,7 @@ async fn main() -> Result<()> {
                     &mut runtime,
                     &command_runner,
                     &command_tx,
+                    &mut packet_runtime,
                     &mut audio,
                 )
                 .await?;
@@ -129,6 +135,7 @@ async fn process_chunk(
     runtime: &mut RuntimeState,
     command_runner: &CommandRunner,
     command_tx: &tokio::sync::mpsc::UnboundedSender<CommandCompletion>,
+    packet_runtime: &mut PacketRuntime,
     audio: &mut AudioPlayer,
 ) -> Result<()> {
     debug!(
@@ -146,6 +153,7 @@ async fn process_chunk(
             runtime,
             command_runner,
             command_tx,
+            packet_runtime,
             audio,
         )
         .await?;
@@ -161,6 +169,7 @@ async fn process_input_events(
     runtime: &mut RuntimeState,
     command_runner: &CommandRunner,
     command_tx: &tokio::sync::mpsc::UnboundedSender<CommandCompletion>,
+    packet_runtime: &mut PacketRuntime,
     audio: &mut AudioPlayer,
 ) -> Result<()> {
     for input_event in input_events {
@@ -179,26 +188,55 @@ async fn process_input_events(
                 menu,
                 &menu_outcome,
             )?;
-            if let MenuOutcome::Action { action_id } = menu_outcome {
-                let effect = runtime
-                    .actions
-                    .dispatch(&runtime.config, menu, &action_id)?;
-                debug!(
-                    effect = ?effect,
-                    phase = ?menu.phase(),
-                    active_tool = %menu.active_tool(&runtime.config).id,
-                    "action effect"
-                );
-                handle_action_effect(
-                    command_runner,
-                    command_tx,
-                    audio,
-                    runtime,
-                    menu,
-                    input,
-                    effect,
-                )
-                .await?;
+            match menu_outcome {
+                MenuOutcome::Action { action_id } => {
+                    let effect = runtime
+                        .actions
+                        .dispatch(&runtime.config, menu, &action_id)?;
+                    debug!(
+                        effect = ?effect,
+                        phase = ?menu.phase(),
+                        active_tool = %menu.active_tool(&runtime.config).id,
+                        "action effect"
+                    );
+                    handle_action_effect(
+                        command_runner,
+                        command_tx,
+                        audio,
+                        runtime,
+                        menu,
+                        input,
+                        packet_runtime,
+                        effect,
+                    )
+                    .await?;
+                }
+                MenuOutcome::RecordingPacket { action_id, event } => {
+                    let active_tool_id = menu.active_tool(&runtime.config).id.clone();
+                    let effect = runtime.actions.dispatch_recording_packet(
+                        &runtime.config,
+                        &action_id,
+                        event,
+                    )?;
+                    debug!(
+                        effect = ?effect,
+                        phase = ?menu.phase(),
+                        active_tool = %active_tool_id,
+                        "recording packet action effect"
+                    );
+                    handle_action_effect(
+                        command_runner,
+                        command_tx,
+                        audio,
+                        runtime,
+                        menu,
+                        input,
+                        packet_runtime,
+                        effect,
+                    )
+                    .await?;
+                }
+                _ => {}
             }
         }
     }
@@ -213,6 +251,7 @@ async fn handle_action_effect(
     runtime: &mut RuntimeState,
     menu: &mut MenuState,
     input: &mut InputNormalizer,
+    packet_runtime: &mut PacketRuntime,
     effect: ActionEffect,
 ) -> Result<()> {
     match effect {
@@ -237,6 +276,40 @@ async fn handle_action_effect(
                     warn!("command completion receiver dropped");
                 }
             });
+        }
+        ActionEffect::RecordingPacket { request, event } => {
+            let tool_id = menu.active_tool(&runtime.config).id.clone();
+            let result = packet_runtime.handle_recording_event(&request.action_id, &tool_id, event);
+            match result {
+                Ok(RecordingActionOutcome::Started) => {
+                    if let Some(text) =
+                        recording_feedback_text(&runtime.config, &request.action_id, "start")
+                    {
+                        play_prompt(audio, &runtime.prompt_audio, text)?;
+                    }
+                }
+                Ok(RecordingActionOutcome::Stopped { packet_id }) => {
+                    info!(%packet_id, action_id = %request.action_id, "recording packet queued");
+                    if let Some(text) =
+                        recording_feedback_text(&runtime.config, &request.action_id, "stop")
+                    {
+                        play_prompt(audio, &runtime.prompt_audio, text)?;
+                    }
+                    if let Some(text) =
+                        recording_feedback_text(&runtime.config, &request.action_id, "enqueued")
+                    {
+                        play_prompt(audio, &runtime.prompt_audio, text)?;
+                    }
+                }
+                Err(err) => {
+                    warn!(action_id = %request.action_id, error = ?err, "recording packet action failed");
+                    if let Some(text) =
+                        recording_feedback_text(&runtime.config, &request.action_id, "failure")
+                    {
+                        play_prompt(audio, &runtime.prompt_audio, text)?;
+                    }
+                }
+            }
         }
         ActionEffect::DeferredInternal {
             command: InternalCommand::CancelRunningAction,
@@ -264,6 +337,7 @@ async fn handle_action_effect(
             action_id,
         } => match RuntimeState::load(runtime.config_path.clone()) {
             Ok(next_runtime) => {
+                packet_runtime.replace_config(next_runtime.config.clone())?;
                 *runtime = next_runtime;
                 *menu = MenuState::new(&runtime.config)?;
                 *input = input_normalizer_for(&runtime.config);
@@ -366,7 +440,7 @@ fn handle_menu_audio(
                 play_prompt(audio, prompt_audio, text)?;
             }
         }
-        MenuOutcome::Action { .. } => {}
+        MenuOutcome::Action { .. } | MenuOutcome::RecordingPacket { .. } => {}
     }
     Ok(())
 }
@@ -394,6 +468,23 @@ fn input_normalizer_for(config: &Config) -> InputNormalizer {
 fn speak_action_text<'a>(config: &'a config::Config, action_id: &str) -> Option<&'a str> {
     config.actions.iter().find_map(|action| match action {
         config::ActionConfig::Internal(action) if action.id == action_id => action.text.as_deref(),
+        _ => None,
+    })
+}
+
+fn recording_feedback_text<'a>(
+    config: &'a config::Config,
+    action_id: &str,
+    field: &str,
+) -> Option<&'a str> {
+    config.actions.iter().find_map(|action| match action {
+        config::ActionConfig::RecordingPacket(action) if action.id == action_id => match field {
+            "start" => action.feedback.start.as_deref(),
+            "stop" => action.feedback.stop.as_deref(),
+            "enqueued" => action.feedback.enqueued.as_deref(),
+            "failure" => action.feedback.failure.as_deref(),
+            _ => None,
+        },
         _ => None,
     })
 }

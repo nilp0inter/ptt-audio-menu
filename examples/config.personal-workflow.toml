@@ -24,7 +24,7 @@ sos_short = "handy-cancel"
 
 [[tools.tabs]]
 id = "mode"
-label = "Dictation"
+label = "Mode"
 
 [[tools.tabs.items]]
 id = "plain"
@@ -35,6 +35,11 @@ primary_action = "switch-handy"
 id = "polished"
 label = "Polished dictation"
 primary_action = "switch-handy-polished"
+
+[[tools.tabs.items]]
+id = "daily-log"
+label = "Daily log"
+primary_action = "switch-daily-log"
 
 [[tools]]
 id = "handy-polished"
@@ -46,7 +51,7 @@ sos_short = "handy-cancel"
 
 [[tools.tabs]]
 id = "mode"
-label = "Dictation"
+label = "Mode"
 
 [[tools.tabs.items]]
 id = "plain"
@@ -57,6 +62,37 @@ primary_action = "switch-handy"
 id = "polished"
 label = "Polished dictation"
 primary_action = "switch-handy-polished"
+
+[[tools.tabs.items]]
+id = "daily-log"
+label = "Daily log"
+primary_action = "switch-daily-log"
+
+[[tools]]
+id = "daily-log"
+label = "Daily log"
+
+[tools.active_hooks]
+ptt = "daily-log-record"
+
+[[tools.tabs]]
+id = "mode"
+label = "Mode"
+
+[[tools.tabs.items]]
+id = "plain"
+label = "Plain dictation"
+primary_action = "switch-handy"
+
+[[tools.tabs.items]]
+id = "polished"
+label = "Polished dictation"
+primary_action = "switch-handy-polished"
+
+[[tools.tabs.items]]
+id = "daily-log"
+label = "Daily log"
+primary_action = "switch-daily-log"
 
 [[global_tabs]]
 id = "system"
@@ -76,6 +112,27 @@ primary_action = "exit-control"
 id = "stop-audio"
 label = "Stop audio"
 primary_action = "stop-audio"
+
+[[actions]]
+id = "daily-log-record"
+type = "recording_packet"
+storage_dir = "/tmp/ptt-audio-menu/daily-log/packets"
+max_attempts = 3
+initial_backoff_ms = 1000
+max_backoff_ms = 60000
+
+[actions.feedback]
+start = "Recording"
+stop = "Stopped"
+enqueued = "Daily log queued"
+failure = "Recording failed"
+
+[actions.processor]
+kind = "daily_log_parakeet"
+model_dir = "/tmp/parakeet-tdt-v3"
+daily_json_dir = "/tmp/ptt-audio-menu/daily-log/json"
+html_dir = "/tmp/ptt-audio-menu/daily-log/html"
+renderer_script = "examples/daily_log_render.py"
 
 [[actions]]
 id = "handy-toggle-plain"
@@ -103,6 +160,12 @@ id = "switch-handy-polished"
 type = "internal"
 command = "switch_tool"
 tool = "handy-polished"
+
+[[actions]]
+id = "switch-daily-log"
+type = "internal"
+command = "switch_tool"
+tool = "daily-log"
 
 [[actions]]
 id = "reload-config"

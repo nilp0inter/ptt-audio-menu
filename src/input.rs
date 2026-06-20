@@ -12,6 +12,8 @@ pub enum HardwareMode {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InputEvent {
+    ActivePttPressed,
+    ActivePttReleased,
     ActivePtt,
     EnterControl,
     NextTab,
@@ -120,9 +122,11 @@ impl InputNormalizer {
                 match self.active_ptt_trigger {
                     ActivePttTrigger::Press => {
                         self.active_ptt_fired = true;
-                        vec![InputEvent::ActivePtt]
+                        vec![InputEvent::ActivePttPressed, InputEvent::ActivePtt]
                     }
-                    ActivePttTrigger::HoldToggle | ActivePttTrigger::ReleaseAfterHold => Vec::new(),
+                    ActivePttTrigger::HoldToggle | ActivePttTrigger::ReleaseAfterHold => {
+                        vec![InputEvent::ActivePttPressed]
+                    }
                 }
             }
             HardwareMode::Control => {
@@ -146,17 +150,17 @@ impl InputNormalizer {
         match self.active_ptt_trigger {
             ActivePttTrigger::HoldToggle if self.active_ptt_fired => {
                 self.active_ptt_fired = false;
-                vec![InputEvent::ActivePtt]
+                vec![InputEvent::ActivePttReleased, InputEvent::ActivePtt]
             }
             ActivePttTrigger::ReleaseAfterHold
                 if now.duration_since(pressed_at) >= self.active_ptt_hold_threshold =>
             {
                 self.active_ptt_fired = false;
-                vec![InputEvent::ActivePtt]
+                vec![InputEvent::ActivePttReleased, InputEvent::ActivePtt]
             }
             _ => {
                 self.active_ptt_fired = false;
-                Vec::new()
+                vec![InputEvent::ActivePttReleased]
             }
         }
     }
@@ -255,15 +259,17 @@ mod tests {
         let mut normalizer = InputNormalizer::new(THRESHOLD);
         let start = at(Duration::ZERO);
 
-        assert!(normalizer
-            .push(event(Button::Ptt, RawAction::Pressed), start)
-            .is_empty());
-        assert!(normalizer
-            .push(
+        assert_eq!(
+            normalizer.push(event(Button::Ptt, RawAction::Pressed), start),
+            vec![InputEvent::ActivePttPressed]
+        );
+        assert_eq!(
+            normalizer.push(
                 event(Button::Ptt, RawAction::Released),
                 start + Duration::from_millis(349)
-            )
-            .is_empty());
+            ),
+            vec![InputEvent::ActivePttReleased]
+        );
     }
 
     #[test]
@@ -274,7 +280,7 @@ mod tests {
         normalizer.push(event(Button::Ptt, RawAction::Pressed), start);
         assert_eq!(
             normalizer.push(event(Button::Ptt, RawAction::Released), start + THRESHOLD),
-            vec![InputEvent::ActivePtt]
+            vec![InputEvent::ActivePttReleased, InputEvent::ActivePtt]
         );
     }
 
@@ -285,11 +291,12 @@ mod tests {
 
         assert_eq!(
             normalizer.push(event(Button::Ptt, RawAction::Pressed), start),
-            vec![InputEvent::ActivePtt]
+            vec![InputEvent::ActivePttPressed, InputEvent::ActivePtt]
         );
-        assert!(normalizer
-            .push(event(Button::Ptt, RawAction::Released), start + THRESHOLD)
-            .is_empty());
+        assert_eq!(
+            normalizer.push(event(Button::Ptt, RawAction::Released), start + THRESHOLD),
+            vec![InputEvent::ActivePttReleased]
+        );
     }
 
     #[test]
@@ -297,9 +304,10 @@ mod tests {
         let mut normalizer = InputNormalizer::with_trigger(THRESHOLD, ActivePttTrigger::HoldToggle);
         let start = at(Duration::ZERO);
 
-        assert!(normalizer
-            .push(event(Button::Ptt, RawAction::Pressed), start)
-            .is_empty());
+        assert_eq!(
+            normalizer.push(event(Button::Ptt, RawAction::Pressed), start),
+            vec![InputEvent::ActivePttPressed]
+        );
         assert_eq!(normalizer.next_deadline(), Some(start + THRESHOLD));
         assert!(normalizer
             .pop_due(start + Duration::from_millis(349))
@@ -310,7 +318,7 @@ mod tests {
         );
         assert_eq!(
             normalizer.push(event(Button::Ptt, RawAction::Released), start + THRESHOLD),
-            vec![InputEvent::ActivePtt]
+            vec![InputEvent::ActivePttReleased, InputEvent::ActivePtt]
         );
         assert_eq!(normalizer.next_deadline(), None);
     }
@@ -321,12 +329,13 @@ mod tests {
         let start = at(Duration::ZERO);
 
         normalizer.push(event(Button::Ptt, RawAction::Pressed), start);
-        assert!(normalizer
-            .push(
+        assert_eq!(
+            normalizer.push(
                 event(Button::Ptt, RawAction::Released),
                 start + Duration::from_millis(349)
-            )
-            .is_empty());
+            ),
+            vec![InputEvent::ActivePttReleased]
+        );
         assert_eq!(normalizer.next_deadline(), None);
     }
 

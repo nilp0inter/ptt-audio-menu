@@ -253,6 +253,20 @@ pub fn collect_prompt_texts(config: &Config) -> Vec<String> {
                     prompts.push(text);
                 }
             }
+            ActionConfig::RecordingPacket(action) => {
+                if let Some(text) = action.feedback.start.as_deref() {
+                    prompts.push(text);
+                }
+                if let Some(text) = action.feedback.stop.as_deref() {
+                    prompts.push(text);
+                }
+                if let Some(text) = action.feedback.enqueued.as_deref() {
+                    prompts.push(text);
+                }
+                if let Some(text) = action.feedback.failure.as_deref() {
+                    prompts.push(text);
+                }
+            }
         }
     }
 

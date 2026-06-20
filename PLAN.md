@@ -267,3 +267,18 @@ This leg adds the first real ergonomic example config and the small runtime supp
 - Modeled Handy plain and polished dictation as separate tools with a shared Dictation tab containing both mode choices, plus a System tab with Back/reload/audio controls.
 
 Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, `nix develop --command cargo check`, and `nix develop --command cargo run -- --config examples/config.handy.toml --check-config` all passed.
+
+## Leg 23: Native Recording Packets and Daily Log
+
+Status: complete
+
+This leg adds the requested native packet recording mode and daily-log workflow:
+
+- Added `recording_packet` actions with per-action storage, retry/backoff, feedback labels, and a built-in `daily_log_parakeet` processor.
+- Added active PTT press/release edge events so recording actions can start on press and stop/enqueue on release while existing debounced command actions keep their prior semantics.
+- Added native default-input capture through CPAL, normalizing recordings to 16 kHz mono PCM WAV.
+- Added durable packet queues with `queued`, `processing`, `processed`, and `dead-letter` directories, same-basename operational JSON metadata, stale processing recovery, ordered processing, exponential retry, and dead-letter continuation.
+- Added Parakeet TDT processing through `parakeet-rs`; model files are supplied through a local `model_dir`, and default tests do not execute model inference.
+- Renamed the Handy example to `examples/config.personal-workflow.toml`, kept Handy plain/polished tools, and added a separate `daily-log` tool plus `examples/daily_log_render.py`.
+
+Verification: `nix develop --command cargo fmt --check`, `nix develop --command cargo test`, and `nix develop --command cargo check` passed.

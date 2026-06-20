@@ -49,22 +49,26 @@ nix develop --command cargo check
 ```
 
 - Running `cargo test` directly on a host without dbus development files fails while building `libdbus-sys`.
-- The dev shell now also carries native audio/TTS build inputs for Kira/Piper: ALSA, OpenSSL, eSpeak-ng, libclang, glibc bindgen headers, and CMake. It sets `PIPER_ESPEAKNG_DATA_DIRECTORY` to the Nix-provided eSpeak data directory for local runs.
+- The dev shell now also carries native audio/TTS/recording build inputs for Kira/Piper/CPAL: ALSA, OpenSSL, eSpeak-ng, libclang, glibc bindgen headers, and CMake. It sets `PIPER_ESPEAKNG_DATA_DIRECTORY` to the Nix-provided `share` directory, because `espeak-rs` appends `espeak-ng-data` internally.
 - The Nix package enables `ort`'s pkg-config path through a direct dependency and uses Nixpkgs `onnxruntime`. It also links `sonic` explicitly because `espeak-rs-sys` can find libsonic during CMake configuration without emitting `-lsonic` to Cargo.
+- The app now also uses `parakeet-rs` for built-in Parakeet TDT processing. Model files are not downloaded or packaged; configs point at a local `model_dir`.
 
 ## Current Code Layout
 
 - `src/main.rs`: application entry point, stdout tracing initialization, reloadable config/cache/prompt-catalog runtime state, TTS prerendering, audio playback wiring, hardcoded target device address, RFCOMM read loop, command-completion feedback handling, parser/menu/action event logging.
 - `examples/config.validation.toml`: representative validation-only config fixture used by the real-package config flake check.
-- `examples/config.handy.toml`: real-use Handy dictation example. It uses the real local Piper voice paths from `/tmp`, models plain and polished dictation as separate tools, uses `globals.active_ptt_trigger = "hold_toggle"`, and intentionally omits command feedback for PTT/cancel commands so those actions do not speak extra prompts.
+- `examples/config.personal-workflow.toml`: real-use workflow example. It uses the real local Piper voice paths from `/tmp`, models Handy plain and polished dictation as separate tools, uses `globals.active_ptt_trigger = "hold_toggle"`, intentionally omits command feedback for Handy PTT/cancel commands, and adds a separate Daily Log tool backed by native recording packets and Parakeet TDT.
+- `examples/daily_log_render.py`: simple renderer invoked by the Daily Log packet processor. It reads a per-day JSON file and writes static HTML.
 - `src/audio.rs`: Kira-backed interrupt-latest WAV prompt playback and stop-current handling. On startup, derives a PipeWire sink node name from the hardcoded Bluetooth MAC (`bluez_output.<underscored_mac>.1`), sets the `PIPEWIRE_NODE` environment variable before Kira initializes its cpal stream, and falls back to the system default sink when no device is configured. cpal device enumeration cannot see Bluetooth A2DP sinks because they are PipeWire-native devices invisible to cpal's ALSA backend.
 - `src/transport.rs`: BlueZ session/adapter setup, RFCOMM Serial Port profile registration, concurrent `connect_profile` and profile request acceptance, and connection lifecycle tracing.
 - `src/parser.rs`: token-scanning serial parser, typed raw button/action events, and parser unit tests.
-- `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, active PTT trigger handling (`release_after_hold`, `press`, `hold_toggle`), and input semantics unit tests.
+- `src/input.rs`: hardware event normalization, active/control mode tracking, SOS long-press suppression, active PTT trigger handling (`release_after_hold`, `press`, `hold_toggle`), active PTT press/release edge events for recording packets, and input semantics unit tests.
 - `src/config.rs`: CLI config path resolution helpers, serde-backed TOML schema (including `AudioConfig` with optional `device` field for future audio sink configurability and `globals.active_ptt_trigger`), validation, and config unit tests.
 - `src/menu.rs`: menu phase/focus state, active/global control tab resolution, remembered valid control focus across exit/tool switches, tab-vs-item focus outcomes, input-to-action outcome mapping, and menu state unit tests.
-- `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, and action dispatcher unit tests.
+- `src/actions.rs`: action ID dispatch, immediate internal effects for no-op/tool switching/control exit, deferred command/internal effects, recording packet edge dispatch, and action dispatcher unit tests.
 - `src/commands.rs`: async argv-list command runner, serial execution guard, optional timeout handling, Unix process-group cancellation, and command runner unit tests.
+- `src/recorder.rs`: CPAL default-input recording, in-memory capture, mono mixing, linear resampling, and 16 kHz mono PCM WAV writing.
+- `src/packets.rs`: durable recording packet queues, operational metadata, state-directory movement, retry/backoff, dead-letter handling, stale processing recovery, and built-in Daily Log Parakeet processing.
 - `src/tts.rs`: TTS cache directory resolution, stable prompt hash keys, placeholder Piper settings, prompt text collection, Piper rendering to PCM WAV, WAV cache read/write helpers, and TTS cache unit tests.
 - `nix/package.nix`: Nix package derivation for the Rust binary and native audio/TTS/ONNX dependencies.
 - `nix/nixos-module.nix`: NixOS service module for system-level installation and systemd wiring.

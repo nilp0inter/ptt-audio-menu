@@ -13,6 +13,7 @@
 - Verified with `nix develop --command cargo fmt --check`.
 - Verified with `nix develop --command cargo test` (6 parser tests passed).
 - Verified with `nix develop --command cargo check`.
+- Fixed Piper/eSpeak runtime data discovery after `examples/config.personal-workflow.toml` failed while rendering the `"Mode"` prompt. `espeak-rs 0.2.0` expects `PIPER_ESPEAKNG_DATA_DIRECTORY` to point at the parent directory containing `espeak-ng-data`, so the dev shell, Nix package, NixOS module, and Home Manager module now set it to `${espeak-ng}/share` instead of `${espeak-ng}/share/espeak-ng-data`.
 - Commit initially failed because Git author identity was not configured; set the local repo identity from the latest commit author.
 - Created commit `551d0af` (`Split parser and transport modules`).
 - `git push` failed because GitHub credentials were unavailable in the non-interactive environment: `could not read Username for 'https://github.com'`.
@@ -310,3 +311,12 @@
 - Updated `DESIGN.md` with active PTT trigger semantics, tab/item navigation speech behavior, remembered control focus, and hold-toggle test coverage.
 - Added Leg 22 to `PLAN.md` for the Handy dictation example and control ergonomics work.
 - Verified with `nix develop --command cargo fmt --check`, `nix develop --command cargo test` (52 tests passed), `nix develop --command cargo check`, and `nix develop --command cargo run -- --config examples/config.handy.toml --check-config`.
+- New native recording packet session: implemented `recording_packet` actions with CPAL default-input capture, 16 kHz mono PCM WAV packet files, same-basename operational JSON metadata, durable per-action queue directories, stale `processing` recovery, ordered processing, exponential retry, and dead-letter continuation.
+- Added `src/recorder.rs` and `src/packets.rs`.
+- Integrated `parakeet-rs 0.3.6` for the built-in `daily_log_parakeet` processor. The processor loads local model files from `model_dir`, transcribes with sentence timestamps, appends to per-day JSON, and invokes a configured renderer script.
+- Extended input/menu/action dispatch with active PTT press/release edge events for recording packet actions while preserving debounced `ActivePtt` behavior for existing command/internal PTT actions.
+- Wired packet workers into startup and `reload_config`; reload aborts old workers and starts workers for the new config.
+- Renamed `examples/config.handy.toml` to `examples/config.personal-workflow.toml`, kept Handy plain/polished tools, added a separate `daily-log` tool, and added `examples/daily_log_render.py`.
+- Verified with `nix develop --command cargo fmt --check`.
+- Verified with `nix develop --command cargo test` (57 unit tests passed).
+- Verified with `nix develop --command cargo check`.

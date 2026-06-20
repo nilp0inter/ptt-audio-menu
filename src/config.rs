@@ -122,6 +122,7 @@ pub struct ItemConfig {
 pub enum ActionConfig {
     Internal(InternalActionConfig),
     Command(CommandActionConfig),
+    RecordingPacket(RecordingPacketActionConfig),
 }
 
 impl ActionConfig {
@@ -129,6 +130,7 @@ impl ActionConfig {
         match self {
             Self::Internal(action) => &action.id,
             Self::Command(action) => &action.id,
+            Self::RecordingPacket(action) => &action.id,
         }
     }
 }
@@ -174,11 +176,51 @@ pub struct CommandActionConfig {
     pub feedback: FeedbackConfig,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingPacketActionConfig {
+    pub id: String,
+    pub storage_dir: PathBuf,
+    pub processor: PacketProcessorConfig,
+    #[serde(default = "default_max_attempts")]
+    pub max_attempts: u32,
+    #[serde(default = "default_initial_backoff_ms")]
+    pub initial_backoff_ms: u64,
+    #[serde(default = "default_max_backoff_ms")]
+    pub max_backoff_ms: u64,
+    #[serde(default)]
+    pub feedback: RecordingFeedbackConfig,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PacketProcessorConfig {
+    DailyLogParakeet(DailyLogParakeetConfig),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DailyLogParakeetConfig {
+    pub model_dir: PathBuf,
+    pub daily_json_dir: PathBuf,
+    pub html_dir: PathBuf,
+    pub renderer_script: PathBuf,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FeedbackConfig {
     pub start: Option<String>,
     pub success: Option<String>,
+    pub failure: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordingFeedbackConfig {
+    pub start: Option<String>,
+    pub stop: Option<String>,
+    pub enqueued: Option<String>,
     pub failure: Option<String>,
 }
 
@@ -330,6 +372,32 @@ fn validate_action(action: &ActionConfig, tool_ids: &HashSet<&str>) -> Result<()
                 );
             }
         }
+        ActionConfig::RecordingPacket(action) => {
+            if action.max_attempts == 0 {
+                bail!("recording action '{}' requires max_attempts > 0", action.id);
+            }
+            if action.initial_backoff_ms == 0 {
+                bail!(
+                    "recording action '{}' requires initial_backoff_ms > 0",
+                    action.id
+                );
+            }
+            if action.max_backoff_ms < action.initial_backoff_ms {
+                bail!(
+                    "recording action '{}' requires max_backoff_ms >= initial_backoff_ms",
+                    action.id
+                );
+            }
+            match &action.processor {
+                PacketProcessorConfig::DailyLogParakeet(processor) => {
+                    validate_existing_dir("processor.model_dir", &processor.model_dir)?;
+                    validate_existing_file(
+                        "processor.renderer_script",
+                        &processor.renderer_script,
+                    )?;
+                }
+            }
+        }
     }
 
     Ok(())
@@ -381,8 +449,27 @@ fn validate_existing_file(label: &str, path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn validate_existing_dir(label: &str, path: &Path) -> Result<()> {
+    if !path.is_dir() {
+        bail!("{label} '{}' is not an existing directory", path.display());
+    }
+    Ok(())
+}
+
 fn default_active_ptt_hold_ms() -> u64 {
     350
+}
+
+fn default_max_attempts() -> u32 {
+    3
+}
+
+fn default_initial_backoff_ms() -> u64 {
+    1_000
+}
+
+fn default_max_backoff_ms() -> u64 {
+    60_000
 }
 
 #[cfg(test)]

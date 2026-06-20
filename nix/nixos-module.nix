@@ -94,7 +94,7 @@ in
 
       environment =
         {
-          PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share/espeak-ng-data";
+          PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share";
           RUST_LOG = cfg.logLevel;
         }
         // cfg.environment;

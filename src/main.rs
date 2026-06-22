@@ -26,7 +26,7 @@ use input::{InputEvent, InputNormalizer};
 use menu::{MenuOutcome, MenuState};
 use packets::{PacketRuntime, RecordingActionOutcome};
 use parser::{Event, Parser};
-use transport::connect_rfcomm_stream;
+use transport::connect_transport;
 use tts::{collect_prompt_texts, prerender_prompts, CachedPrompt, TtsCache, TtsRenderer};
 
 #[derive(Debug, ClapParser)]
@@ -65,15 +65,32 @@ async fn main() -> Result<()> {
     info!(tts_cache_dir = %runtime.tts_cache_dir.display(), "resolved TTS cache");
     info!(prompt_count = runtime.prompt_count, "prepared TTS prompts");
     let bluetooth_device = runtime.config.bluetooth.device.clone();
-    let audio_device = runtime
-        .config
-        .audio
-        .device
-        .as_deref()
-        .unwrap_or(&bluetooth_device);
     info!(device_addr = %bluetooth_device, "connecting device");
-    let mut stream = connect_rfcomm_stream(&bluetooth_device).await?;
-    let mut audio = AudioPlayer::new(runtime.config.audio.device.as_deref(), Some(audio_device))?;
+    #[cfg(target_os = "linux")]
+    let mut stream = connect_transport(&bluetooth_device).await?;
+    #[cfg(target_os = "macos")]
+    let mut stream = {
+        let serial_port = runtime
+            .config
+            .bluetooth
+            .serial_port
+            .as_ref()
+            .context("bluetooth.serial_port is required on macOS (pair the device in System Settings -> Bluetooth, then set the /dev/cu.<name>-SPPDev path)")?;
+        connect_transport(serial_port).await?
+    };
+
+    #[cfg(target_os = "linux")]
+    let audio_device_for_routing: Option<&str> = Some(
+        runtime
+            .config
+            .audio
+            .device
+            .as_deref()
+            .unwrap_or(&bluetooth_device),
+    );
+    #[cfg(target_os = "macos")]
+    let audio_device_for_routing: Option<&str> = runtime.config.audio.device.as_deref();
+    let mut audio = AudioPlayer::new(audio_device_for_routing, Some(&bluetooth_device))?;
     let mut parser = Parser::default();
     let mut input = input_normalizer_for(&runtime.config);
     let mut menu = MenuState::new(&runtime.config)?;

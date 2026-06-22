@@ -392,6 +392,7 @@ mod tests {
             default_tool: "radio".to_string(),
             bluetooth: BluetoothConfig {
                 device: "00:02:5B:55:FF:01".to_string(),
+                serial_port: None,
             },
             voice: VoiceConfig {
                 model_path,
@@ -493,6 +494,7 @@ mod tests {
             default_tool: "radio".to_string(),
             bluetooth: BluetoothConfig {
                 device: "00:02:5B:55:FF:01".to_string(),
+                serial_port: None,
             },
             voice: VoiceConfig {
                 model_path: PathBuf::from("/voices/en.onnx"),

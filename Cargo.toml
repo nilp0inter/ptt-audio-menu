@@ -6,7 +6,6 @@ rust-version = "1.75"
 
 [dependencies]
 anyhow = "1"
-bluer = { version = "0.17.4", features = ["bluetoothd", "rfcomm"] }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 cpal = "0.17.3"
@@ -26,6 +25,17 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 uuid = "1"
+
+# Linux: BlueZ RFCOMM transport via the bluer crate.
+[target.'cfg(target_os = "linux")'.dependencies]
+bluer = { version = "0.17.4", features = ["bluetoothd", "rfcomm"] }
+
+# macOS: serial-port file transport (e.g. /dev/cu.<device-name>-SPPDev)
+# created automatically when a paired Bluetooth Classic device exposes an
+# SPP service. The user must pair the device in System Settings -> Bluetooth
+# once; no programmatic profile registration is performed.
+[target.'cfg(target_os = "macos")'.dependencies]
+tokio-serial = { version = "5.4.0", default-features = false }
 
 [dev-dependencies]
 tempfile = "3"

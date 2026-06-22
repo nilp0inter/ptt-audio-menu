@@ -36,6 +36,10 @@ pub struct Config {
 #[serde(deny_unknown_fields)]
 pub struct BluetoothConfig {
     pub device: String,
+    /// macOS-only path to the paired Bluetooth SPP serial-port node
+    /// (e.g. `/dev/cu.MyRemote-SPPDev`). Ignored on Linux.
+    #[serde(default)]
+    pub serial_port: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -451,9 +455,23 @@ fn validate_slug(label: &str, value: &str) -> Result<()> {
 }
 
 fn validate_bluetooth_address(label: &str, value: &str) -> Result<()> {
-    value
-        .parse::<bluer::Address>()
-        .with_context(|| format!("{label} '{value}' is not a valid Bluetooth address"))?;
+    // Bluetooth addresses are six octets separated by colons (EUI-48 / MAC-48).
+    // Validating locally avoids depending on `bluer::Address`, which is only
+    // available on Linux.
+    let mut octets = 0u8;
+    for part in value.split(':') {
+        if part.len() != 2 || !part.bytes().all(|b| b.is_ascii_hexdigit()) {
+            bail!(
+                "{label} '{value}' is not a valid Bluetooth address (expected XX:XX:XX:XX:XX:XX)"
+            );
+        }
+        octets += 1;
+    }
+    if octets != 6 {
+        bail!(
+            "{label} '{value}' is not a valid Bluetooth address (expected six octets, got {octets})"
+        );
+    }
     Ok(())
 }
 

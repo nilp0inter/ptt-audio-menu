@@ -17,7 +17,11 @@ The target RSM address is configured in TOML:
 
 Implemented:
 
-- BlueZ RFCOMM profile registration and connection through `bluer`.
+- Platform transport abstraction. On Linux, BlueZ RFCOMM profile
+  registration and connection through `bluer`. On macOS, a paired
+  Bluetooth SPP serial-port file (e.g. `/dev/cu.<name>-SPPDev`) opened
+  with `tokio-serial`; the user pairs the device once in System Settings
+  → Bluetooth and supplies the path via `bluetooth.serial_port`.
 - Token-scanning parser for concatenated/split/noisy serial button codes.
 - Active/control hardware mode normalization.
 - TOML config loading and validation.
@@ -26,19 +30,25 @@ Implemented:
   process-group cancellation on Unix.
 - Piper TTS prerendering with stable WAV cache keys.
 - Kira prompt playback with interrupt-latest behavior.
-- PipeWire Bluetooth sink routing through `PIPEWIRE_NODE`.
+- Audio output routing. On Linux, PipeWire Bluetooth sink routing through
+  `PIPEWIRE_NODE`. On macOS, cpal output-device selection by name via
+  `audio.device` (cpal's CoreAudio backend enumerates Bluetooth A2DP sinks).
 - Native CPAL recording packets written as 16 kHz mono PCM WAV.
 - Durable packet queues with retry/backoff, stale processing recovery, and
   dead-letter handling.
 - Built-in Daily Log packet processor using local Parakeet TDT model files.
 - Nix package, NixOS module, Home Manager module, and hardware-free flake
-  checks.
+  checks. The package and dev shell build on Linux and macOS (aarch64-darwin
+  and x86_64-darwin); NixOS/Home Manager module checks remain Linux-only.
 
 Known constraints:
 
-- Bluetooth pairing/device discovery is not implemented.
+- Bluetooth pairing/device discovery is not implemented. On macOS, the RSM
+  must be paired in System Settings → Bluetooth before running; the SPP serial
+  node macOS creates is referenced via `bluetooth.serial_port`.
 - Command actions are argv-list only; shell-string command actions are rejected.
-- ASR model files are not downloaded or packaged.
+- ASR model files are not downloaded or packaged; see the README's
+  Configuration section for the Piper voice and Parakeet TDT model paths.
 - Packet requeue is automatic only; there is no manual requeue CLI.
 
 ## Hardware Controls
@@ -193,6 +203,20 @@ command = "reload_config"
 text = "Reload failed"
 ```
 
+On macOS, pair the RSM in System Settings → Bluetooth first, then add
+`bluetooth.serial_port` pointing at the SPP serial node macOS creates for the
+device (the name is derived from the device's Bluetooth name, not its MAC):
+
+```toml
+[bluetooth]
+device = "00:02:5B:55:FF:01"
+serial_port = "/dev/cu.B02PTT-FF01-SPPDev"
+```
+
+Optionally set `audio.device` to a cpal output device name (e.g. the RSM's
+A2DP sink name as shown by `system_profiler SPAudioDataType`) to route prompts
+there; otherwise the system default output is used.
+
 ID rules:
 
 - IDs are strict lowercase slugs: lowercase ASCII letters, digits, and single
@@ -277,17 +301,23 @@ Startup sequence:
 3. Render missing prompts with Piper.
 4. Cache WAV prompts using a hash of text, voice paths, Piper settings, output
    format, and app version.
-5. Connect Bluetooth RFCOMM.
+5. Connect Bluetooth transport. On Linux, register and accept the BlueZ
+   RFCOMM profile. On macOS, open the configured `bluetooth.serial_port`
+   serial-port file.
 6. Initialize Kira audio and speak the active tool label.
 
 Audio routing:
 
-- Runtime derives `bluez_output.<MAC_WITH_UNDERSCORES>.1` from
+- On Linux, runtime derives `bluez_output.<MAC_WITH_UNDERSCORES>.1` from
   `[audio].device`, or from `[bluetooth].device` when `[audio].device` is
-  omitted.
-- It sets `PIPEWIRE_NODE` before Kira/cpal initializes.
-- This avoids runtime `pw-dump` calls and cpal output-device enumeration, which
-  does not expose PipeWire-native Bluetooth sinks on this system.
+  omitted, and sets `PIPEWIRE_NODE` before Kira/cpal initializes. This avoids
+  runtime `pw-dump` calls and cpal output-device enumeration, which does not
+  expose PipeWire-native Bluetooth sinks on this system.
+- On macOS, cpal's CoreAudio backend can enumerate Bluetooth A2DP sinks
+  directly. When `[audio].device` is set, runtime resolves the cpal output
+  device by name and passes it to Kira's `CpalBackendSettings`. When
+  `[audio].device` is omitted, the system default output is used.
+  `[bluetooth].device` is not used for audio routing on macOS.
 
 The Nix dev shell and modules set:
 
@@ -322,7 +352,8 @@ On startup, stale `processing` packets are recovered to `queued`.
 Build package:
 
 ```sh
-nix build .#packages.x86_64-linux.default
+nix build .#packages.x86_64-linux.default    # Linux
+nix build .#packages.aarch64-darwin.default  # macOS (Apple Silicon)
 ```
 
 NixOS module:
@@ -393,7 +424,7 @@ closure.
 | Path | Responsibility |
 | --- | --- |
 | `src/main.rs` | CLI, runtime state, config reload, TTS/audio startup, RFCOMM loop, action wiring |
-| `src/transport.rs` | BlueZ adapter/profile setup and RFCOMM stream acceptance |
+| `src/transport.rs` | Platform transport: BlueZ RFCOMM on Linux, `tokio-serial` SPP port on macOS |
 | `src/parser.rs` | Serial token scanner |
 | `src/input.rs` | Hardware mode and button semantic normalization |
 | `src/config.rs` | TOML schema, path resolution, validation |
@@ -401,7 +432,7 @@ closure.
 | `src/actions.rs` | Action lookup and dispatch effects |
 | `src/commands.rs` | Async serial command runner and cancellation |
 | `src/tts.rs` | Prompt collection, Piper rendering, WAV cache |
-| `src/audio.rs` | Kira prompt playback and PipeWire sink routing |
+| `src/audio.rs` | Kira prompt playback and audio sink routing (PipeWire on Linux, cpal device on macOS) |
 | `src/recorder.rs` | CPAL recording and 16 kHz mono WAV encoding |
 | `src/packets.rs` | Durable packet queues and Daily Log processor |
 | `nix/package.nix` | Rust package derivation |

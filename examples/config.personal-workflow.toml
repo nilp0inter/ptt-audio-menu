@@ -2,6 +2,7 @@ default_tool = "handy"
 
 [bluetooth]
 device = "00:02:5B:55:FF:01"
+serial_port = "/dev/cu.B02PTT-FF01"
 
 [voice]
 model_path = "/tmp/en_GB-alan-medium.onnx"

@@ -49,6 +49,20 @@ The Home Manager module always installs the package. The user service is
 optional because Bluetooth profile registration and audio device access may be
 host policy dependent.
 
+## Platform Support
+
+The package and dev shell build on Linux (`x86_64-linux`, `aarch64-linux`)
+and macOS (`aarch64-darwin`, `x86_64-darwin`). The NixOS and Home Manager
+modules and their checks are Linux-only because they wire systemd services;
+on macOS, use the package directly (e.g. via `launchd` or a foreground
+terminal) and supply `bluetooth.serial_port` in the config as described in
+the README.
+
+The macOS dev shell does not pull in ALSA, dbus, PipeWire, or glibc bindgen
+headers (cpal uses CoreAudio, and the transport is `tokio-serial` rather than
+`bluer`). It sets `LIBRARY_PATH` to expose `libsonic` and `onnxruntime` to the
+linker, and `RUSTFLAGS=-C link-arg=-lsonic` for the final binary link.
+
 ## Checks
 
 `nix flake check` builds the package, evaluates NixOS/Home Manager module

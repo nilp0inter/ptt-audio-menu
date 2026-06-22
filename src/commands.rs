@@ -265,7 +265,7 @@ mod tests {
         assert_eq!(execution.outcome, CommandOutcome::Success);
         assert_eq!(
             fs::read_to_string(out).unwrap(),
-            format!("{}:ok", dir.path().display())
+            format!("{}:ok", fs::canonicalize(dir.path()).unwrap().display())
         );
     }
 

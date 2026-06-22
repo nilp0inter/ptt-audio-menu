@@ -8,12 +8,18 @@
   outputs = { self, nixpkgs, ... }:
     let
       lib = nixpkgs.lib;
-      systems = [
+      linuxSystems = [
         "x86_64-linux"
         "aarch64-linux"
       ];
+      darwinSystems = [
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
+      allSystems = linuxSystems ++ darwinSystems;
 
-      forAllSystems = lib.genAttrs systems;
+      forAllSystems = lib.genAttrs allSystems;
+      forLinuxSystems = lib.genAttrs linuxSystems;
     in
     {
       packages = forAllSystems (system:
@@ -25,7 +31,7 @@
           ptt-audio-menu = self.packages.${system}.default;
         });
 
-      checks = forAllSystems (system:
+      checks = forLinuxSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
           dummyPackage = pkgs.writeShellScriptBin "ptt-audio-menu" ''
@@ -298,29 +304,53 @@
       devShells = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
         in
         {
-          default = pkgs.mkShell {
-            packages = with pkgs; [
-              cargo
-              cmake
-              rustc
-              rustfmt
-              clippy
-              gcc
-              pkg-config
-              alsa-lib.dev
-              dbus.dev
-              espeak-ng
-              llvmPackages.libclang.lib
-              openssl.dev
-            ];
+          default = if isDarwin then
+            pkgs.mkShell {
+              packages = with pkgs; [
+                cargo
+                cmake
+                rustc
+                rustfmt
+                clippy
+                pkg-config
+                espeak-ng
+                llvmPackages.libclang.lib
+                onnxruntime
+                sonic
+                openssl.dev
+              ];
 
-            PKG_CONFIG_PATH = "${pkgs.alsa-lib.dev}/lib/pkgconfig:${pkgs.dbus.dev}/lib/pkgconfig:${pkgs.openssl.dev}/lib/pkgconfig";
-            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-            BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.glibc.dev}/include";
-            PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share";
-          };
+              LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+              PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share";
+              PKG_CONFIG_PATH = "${pkgs.onnxruntime}/lib/pkgconfig:${pkgs.openssl.dev}/lib/pkgconfig";
+              LIBRARY_PATH = "${pkgs.sonic}/lib:${pkgs.onnxruntime}/lib";
+              RUSTFLAGS = "-C link-arg=-lsonic";
+            }
+          else
+            pkgs.mkShell {
+              packages = with pkgs; [
+                cargo
+                cmake
+                rustc
+                rustfmt
+                clippy
+                gcc
+                pkg-config
+                alsa-lib.dev
+                dbus.dev
+                espeak-ng
+                llvmPackages.libclang.lib
+                openssl.dev
+              ];
+
+              PKG_CONFIG_PATH = "${pkgs.alsa-lib.dev}/lib/pkgconfig:${pkgs.dbus.dev}/lib/pkgconfig:${pkgs.openssl.dev}/lib/pkgconfig";
+              LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+              BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.glibc.dev}/include";
+              PIPER_ESPEAKNG_DATA_DIRECTORY = "${pkgs.espeak-ng}/share";
+            };
         });
     };
 }
